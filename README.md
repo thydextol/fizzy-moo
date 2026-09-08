@@ -16,7 +16,7 @@ Unity -batchmode -quit -nographics -projectPath . \
       -executeMethod FizzyMoo.EditorTools.FizzyMooBuild.BuildMac
 ```
 
-Controls: `WASD`/arrows move · `Space` vent/pour · `R` restart.
+Controls: `WASD`/arrows move · `Space` vent/pour · `R` restart · `B` jump to 92 PSI (demo) · `P` toggle autopilot.
 Player flags: `--demo` (autopilot attract mode) · `--record --seconds N --outdir DIR` (deterministic 60 fps JPEG capture + `events.tsv` audio event track).
 
 ## Layout

@@ -14,7 +14,12 @@ namespace FizzyMoo
     public class Can : MonoBehaviour
     {
         public Flavor Flavor { get; private set; }
+        public bool Spin = true;
+        public float SpinSpeed = 46f;
+        public float Bob = 0f;
+
         Transform _spin;
+        float _t;
 
         public static Can Build(Transform parent, Vector3 pos, Flavor f, float targetHeight = 0.62f)
         {
@@ -37,24 +42,21 @@ namespace FizzyMoo
 
         void BuildFromModel(GameObject prefab, float targetHeight)
         {
-            var inst = Instantiate(prefab, _spin);
-            inst.transform.localPosition = Vector3.zero;
-            inst.transform.localRotation = Quaternion.identity;
-            inst.transform.localScale = Vector3.one;
+            // A wrapper carries the normalisation so the model keeps its authored
+            // transform - the FBX root holds the Z-up to Y-up conversion, and
+            // resetting it laid the can on its side.
+            var norm = Mk.Empty("Norm", _spin).transform;
+            var inst = Instantiate(prefab, norm);
 
             var rends = inst.GetComponentsInChildren<Renderer>();
             if (rends.Length == 0) { Destroy(inst); BuildProcedural(Flavor, targetHeight); return; }
 
-            // Measure in the model's OWN local space. Renderer.bounds is world space,
-            // and this can is parented under a customer that starts at scale zero
-            // during its pop-in, which made the measurement degenerate and produced
-            // a can the size of a barn.
-            var local = LocalBounds(inst.transform);
-            float h = local.size.y;
+            var b = HierarchyBounds(inst.transform);
+            float h = b.size.y;
             float s = h > 0.0001f ? targetHeight / h : 1f;
-            inst.transform.localScale = Vector3.one * s;
+            norm.localScale = Vector3.one * s;
             // seat the base on the anchor and centre it horizontally
-            inst.transform.localPosition = new Vector3(-local.center.x, -local.min.y, -local.center.z) * s;
+            norm.localPosition = new Vector3(-b.center.x, -b.min.y, -b.center.z) * s;
 
             // FBX material import is unreliable headless; bind the label explicitly.
             var label = Resources.Load<Texture2D>("Brand/" + LabelName(Flavor));
@@ -69,26 +71,32 @@ namespace FizzyMoo
             foreach (var c in inst.GetComponentsInChildren<Collider>()) Destroy(c);
         }
 
-
-        /// <summary>Bounds of a hierarchy expressed in the root's own local space.</summary>
-        static Bounds LocalBounds(Transform root)
+        /// <summary>
+        /// Bounds of a hierarchy in its parent's space, composed purely from local TRS.
+        /// Renderer.bounds and world matrices are useless here: the customer holding
+        /// the can is scaled to ZERO between orders, which made the first version
+        /// measure garbage and produce a barn-sized can lying on its side.
+        /// </summary>
+        static Bounds HierarchyBounds(Transform root)
         {
-            var b = new Bounds();
-            bool first = true;
+            var b = new Bounds(); bool first = true;
             foreach (var mf in root.GetComponentsInChildren<MeshFilter>())
             {
                 if (mf.sharedMesh == null) continue;
+                var m = Matrix4x4.identity;
+                for (var t = mf.transform; t != null; t = t.parent)
+                {
+                    m = Matrix4x4.TRS(t.localPosition, t.localRotation, t.localScale) * m;
+                    if (t == root) break;
+                }
                 var mb = mf.sharedMesh.bounds;
-                var m = root.worldToLocalMatrix * mf.transform.localToWorldMatrix;
-                var c = m.MultiplyPoint3x4(mb.center);
-                var ax = m.MultiplyVector(new Vector3(mb.extents.x, 0f, 0f));
-                var ay = m.MultiplyVector(new Vector3(0f, mb.extents.y, 0f));
-                var az = m.MultiplyVector(new Vector3(0f, 0f, mb.extents.z));
-                var e = new Vector3(Mathf.Abs(ax.x) + Mathf.Abs(ay.x) + Mathf.Abs(az.x),
-                                    Mathf.Abs(ax.y) + Mathf.Abs(ay.y) + Mathf.Abs(az.y),
-                                    Mathf.Abs(ax.z) + Mathf.Abs(ay.z) + Mathf.Abs(az.z));
-                var one = new Bounds(c, e * 2f);
-                if (first) { b = one; first = false; } else b.Encapsulate(one);
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = mb.center + Vector3.Scale(mb.extents,
+                        new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                    var p = m.MultiplyPoint3x4(corner);
+                    if (first) { b = new Bounds(p, Vector3.zero); first = false; } else b.Encapsulate(p);
+                }
             }
             return b;
         }
@@ -109,15 +117,11 @@ namespace FizzyMoo
                     new Vector3(r * 1.7f, targetHeight * 0.03f, r * 1.7f), lid, "Base");
         }
 
-        public bool Spin = true;
-        public float Bob = 0f;
-        float _t;
-
         void Update()
         {
             if (_spin == null) return;
             _t += Time.deltaTime;
-            if (Spin) _spin.localRotation = Quaternion.Euler(0f, _t * 46f, 0f);
+            if (Spin) _spin.localRotation = Quaternion.Euler(0f, _t * SpinSpeed, 0f);
             if (Bob > 0f) _spin.localPosition = new Vector3(0f, Mathf.Sin(_t * 2.2f) * Bob, 0f);
         }
     }

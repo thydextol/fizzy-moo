@@ -13,6 +13,7 @@ namespace FizzyMoo
         public float Patience = 26f;
         public float PatienceLeft;
         public bool Active;
+        const float Size = 1.22f;   // a bit over life-size so they read from across the meadow
 
         Transform _body, _head, _armL, _armR, _patienceRing;
         Material _shirtMat, _ringMat;
@@ -79,10 +80,10 @@ namespace FizzyMoo
         {
             for (float t = 0f; t < 1f; t += Time.deltaTime * 2.6f)
             {
-                transform.localScale = Vector3.one * Ease.OutBack(Mathf.Clamp01(t));
+                transform.localScale = Vector3.one * (Size * Ease.OutBack(Mathf.Clamp01(t)));
                 yield return null;
             }
-            transform.localScale = Vector3.one;
+            transform.localScale = Vector3.one * Size;
         }
 
         public void React(bool happy, float quality)
@@ -119,7 +120,7 @@ namespace FizzyMoo
             // shrink away
             for (float t = 0f; t < 1f; t += Time.deltaTime * 3.2f)
             {
-                transform.localScale = Vector3.one * (1f - Ease.OutCubic(Mathf.Clamp01(t)));
+                transform.localScale = Vector3.one * (Size * (1f - Ease.OutCubic(Mathf.Clamp01(t))));
                 yield return null;
             }
             transform.localScale = Vector3.zero;

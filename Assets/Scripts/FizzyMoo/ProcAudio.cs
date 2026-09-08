@@ -146,6 +146,10 @@ namespace FizzyMoo
     public class Sfx : MonoBehaviour
     {
         public static Sfx I;
+        /// <summary>(clip name, volume, pitch) - lets the FrameRecorder log an event track.</summary>
+        public static System.Action<string, float, float> OnPlay;
+        /// <summary>(volume, pitch) of the continuous fizz bed, per frame.</summary>
+        public static System.Action<float, float> OnFizz;
         AudioSource[] _pool;
         int _next;
         AudioSource _fizzLoop;
@@ -177,6 +181,7 @@ namespace FizzyMoo
             _next = (_next + 1) % _pool.Length;
             a.pitch = pitch;
             a.PlayOneShot(c, vol);
+            OnPlay?.Invoke(c.name, vol, pitch);
         }
 
         /// <summary>Continuous fizz bed - volume/pitch track how hard the cow is venting.</summary>
@@ -184,6 +189,7 @@ namespace FizzyMoo
         {
             _fizzLoop.volume = Mathf.Lerp(_fizzLoop.volume, Mathf.Clamp01(amount01) * 0.5f, Time.deltaTime * 12f);
             _fizzLoop.pitch = pitch;
+            OnFizz?.Invoke(_fizzLoop.volume, pitch);
         }
     }
 }

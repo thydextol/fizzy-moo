@@ -146,6 +146,11 @@ namespace FizzyMoo
                 else                                Hud.SetHint("GET TO THE STAND");
             }
             else Hud.SetHint("");
+
+            var cust = Stand.Customer;
+            if (Phase == Phase.Playing && cust != null && cust.Active)
+                Hud.SetOrder("ORDER   " + Palette.Name(cust.Want) + "   " + Mathf.RoundToInt(cust.WantFill * 100f) + "%", Palette.Of(cust.Want));
+            else Hud.SetOrder("", Palette.Cream);
         }
 
         void Begin()

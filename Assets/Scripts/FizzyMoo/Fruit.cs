@@ -35,7 +35,7 @@ namespace FizzyMoo
 
             var trig = gameObject.AddComponent<SphereCollider>();
             trig.isTrigger = true;
-            trig.radius = 1.15f;
+            trig.radius = 0.95f;
             trig.center = new Vector3(0f, 0.5f, 0f);
 
             var c = Palette.Of(Flavor);

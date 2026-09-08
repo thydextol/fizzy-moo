@@ -20,7 +20,7 @@ namespace FizzyMoo
         public const float MaxPressure   = 100f;
         const float MoveAccel            = 46f;
         const float MaxSpeed             = 6.4f;
-        const float TurnLerp             = 12f;
+        const float TurnLerp             = 15f;
         const float PressurePerBerry     = 13f;
         const float FermentPerBerry      = 1.05f;   // added to the per-second climb
         const float FermentDecay         = 0.16f;   // fermentation calms down slowly
@@ -41,6 +41,10 @@ namespace FizzyMoo
         CowRig _rig;
         ParticleSystem _fizzJet, _burst, _warnPuff;
         Vector2 _input;
+
+        /// <summary>Set by the stand; the vent jet arcs toward it when she is in range.</summary>
+        public Transform PourTarget;
+        float _lastYaw;
 
         public System.Action OnBlowout;
         public System.Action<Flavor> OnAte;
@@ -170,6 +174,13 @@ namespace FizzyMoo
             _rig.FlavorMix = FlavorMix;
 
             var v = _rb.linearVelocity; v.y = 0f;
+
+            // Lean into turns: yaw rate -> body roll on the rig.
+            float yaw = transform.eulerAngles.y;
+            float yawRate = Mathf.DeltaAngle(_lastYaw, yaw) / Mathf.Max(dt, 0.0001f);
+            _lastYaw = yaw;
+            _rig.Lean = Mathf.Lerp(_rig.Lean, Mathf.Clamp(yawRate / 260f, -1f, 1f), 1f - Mathf.Exp(-9f * dt));
+
             _rig.Tick(Mathf.Clamp01(v.magnitude / MaxSpeed), dt);
         }
 
@@ -182,6 +193,23 @@ namespace FizzyMoo
 
             var jm = _fizzJet.main; jm.startColor = col;
             var jem = _fizzJet.emission; jem.rateOverTime = venting ? 260f : 0f;
+
+            // Arc the stream into the glass when it is within reach; otherwise it
+            // just sprays at the ground. Sells the pour far better than a jet that
+            // fires straight down three metres from the thing it is filling.
+            var jt = _fizzJet.transform;
+            bool aimed = PourTarget != null && (PourTarget.position - jt.position).magnitude < 6.5f;
+            if (aimed)
+            {
+                var to = PourTarget.position - jt.position;
+                jt.rotation = Quaternion.LookRotation((to.normalized + Vector3.up * 0.55f).normalized);
+                jm.startSpeed = new ParticleSystem.MinMaxCurve(to.magnitude * 1.9f, to.magnitude * 2.3f);
+            }
+            else
+            {
+                jt.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                jm.startSpeed = new ParticleSystem.MinMaxCurve(3.2f, 6.5f);
+            }
             if (venting && !_fizzJet.isPlaying) _fizzJet.Play();
             if (!venting && _fizzJet.isPlaying) _fizzJet.Stop();
 
@@ -226,6 +254,7 @@ namespace FizzyMoo
             if (f == Flavor.KeyLime) m.x += 1f; else if (f == Flavor.OrangeCream) m.y += 1f; else m.z += 1f;
             FlavorMix = m;
             _rig.Wobble(5.5f);
+            _rig.Chomp();
             Sfx.I?.Play(ProcAudio.Chomp, 0.7f, Random.Range(0.9f, 1.15f));
             OnAte?.Invoke(f);
         }

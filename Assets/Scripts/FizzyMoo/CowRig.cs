@@ -26,6 +26,9 @@ namespace FizzyMoo
         float _walkPhase, _jiggle, _jiggleVel, _blinkT, _blink = 1f;
 
         public float PressureNorm;
+        public float Lean;                  // -1..1, driven by yaw rate
+        float _chompT;
+        Vector3 _muzzleHome;
         public Vector3 FlavorMix = Vector3.zero;
 
         public static CowRig Build(Transform parent)
@@ -125,6 +128,7 @@ namespace FizzyMoo
             Mk.Prim(PrimitiveType.Capsule, Tail, new Vector3(0f, -0.24f, 0f), new Vector3(0.06f, 0.22f, 0.06f), white, "TailBone");
             Mk.Prim(PrimitiveType.Sphere, Tail, new Vector3(0f, -0.50f, 0f), new Vector3(0.15f, 0.19f, 0.15f), black, "Tuft");
 
+            _muzzleHome = Muzzle.localScale;
             _bodyHome = Body.localPosition;
             _headHome = Head.localPosition;
             _udderHome = Udder.localScale;
@@ -166,6 +170,9 @@ namespace FizzyMoo
 
         public void Wobble(float force) => _jiggleVel += force;
 
+        /// <summary>Head-dip and muzzle pop when she eats something.</summary>
+        public void Chomp() => _chompT = 1f;
+
         public void Tick(float speed01, float dt)
         {
             _jiggleVel += -_jiggle * 90f * dt;
@@ -190,11 +197,15 @@ namespace FizzyMoo
             float shake = Mathf.Sin(Time.time * Mathf.Lerp(18f, 46f, tremor)) * 0.035f * tremor;
 
             Body.localPosition = _bodyHome + new Vector3(shake * 0.6f, bob + _jiggle * 0.10f, 0f);
+            Body.localRotation = Quaternion.Euler(0f, 0f, -Lean * 7f);
             float swell = 1f + p * 0.15f;
             Body.localScale = new Vector3(swell + _jiggle * 0.09f, swell - _jiggle * 0.12f, swell + _jiggle * 0.09f);
 
-            Head.localPosition = _headHome + new Vector3(0f, Mathf.Sin(_walkPhase * 2f + 0.6f) * 0.03f * speed01 + p * 0.05f, 0f);
-            Head.localRotation = Quaternion.Euler(Mathf.Lerp(4f, -18f, p), Mathf.Sin(Time.time * 0.8f) * 3f * (1f - speed01), shake * 20f);
+            _chompT = Mathf.Max(0f, _chompT - dt * 3.6f);
+            float dip = Mathf.Sin(Mathf.Clamp01(_chompT) * Mathf.PI);
+            Head.localPosition = _headHome + new Vector3(0f, Mathf.Sin(_walkPhase * 2f + 0.6f) * 0.03f * speed01 + p * 0.05f - dip * 0.13f, dip * 0.05f);
+            Head.localRotation = Quaternion.Euler(Mathf.Lerp(4f, -18f, p) + dip * 34f, Mathf.Sin(Time.time * 0.8f) * 3f * (1f - speed01), shake * 20f);
+            Muzzle.localScale = _muzzleHome * (1f + dip * 0.35f);
 
             // Blink - cheap, but it is what stops her reading as an object.
             _blinkT -= dt;

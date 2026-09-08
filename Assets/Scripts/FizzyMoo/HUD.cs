@@ -12,7 +12,7 @@ namespace FizzyMoo
     {
         Canvas _canvas;
         Image _gaugeFill, _gaugeGlow, _vignette, _flash;
-        Text _psi, _score, _combo, _timer, _served, _hint, _bigTitle, _bigSub;
+        Text _psi, _score, _combo, _timer, _served, _order, _hint, _bigTitle, _bigSub;
         RectTransform _gaugeRoot, _panelTitle, _panelOver;
         Image[] _mixBars = new Image[3];
         Text[] _pops = new Text[6];
@@ -67,6 +67,9 @@ namespace FizzyMoo
             var vBox = UIKit.Rect("ServedBox", root, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
                                   new Vector2(-48f, -46f), new Vector2(460f, 60f));
             _served = UIKit.LabelShadowed("Served", vBox, "0 SERVED", 40, Palette.Cream, TextAnchor.MiddleRight);
+            var oBox = UIKit.Rect("OrderBox", root, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
+                                  new Vector2(-48f, -104f), new Vector2(640f, 46f));
+            _order = UIKit.LabelShadowed("Order", oBox, "", 34, Palette.Cream, TextAnchor.MiddleRight);
 
             // --- pressure gauge (left, mid) --------------------------------------
             _gaugeRoot = UIKit.Rect("Gauge", root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -217,6 +220,8 @@ namespace FizzyMoo
         }
 
         public void SetHint(string s) { if (_hint.text != s) _hint.text = s; }
+
+        public void SetOrder(string s, Color c) { if (_order.text != s) _order.text = s; _order.color = c; }
 
         public void Flash(Color c, float strength)
         {

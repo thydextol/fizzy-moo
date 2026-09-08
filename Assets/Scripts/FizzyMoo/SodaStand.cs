@@ -24,7 +24,8 @@ namespace FizzyMoo
 
         Material _zoneMat, _tapMat;
         Transform _zoneDisc, _tapHandle;
-        ParticleSystem _spill, _celebrate;
+        ParticleSystem _spill, _celebrate, _splash;
+        Transform _glassTop;
         CowController _cow;
         int _difficulty;
         float _phase, _lockout;
@@ -81,16 +82,17 @@ namespace FizzyMoo
             for (int i = 0; i < 3; i++)
             {
                 var can = Can.Build(transform, new Vector3(-0.95f + i * 0.95f, 1.22f, -0.34f), (Flavor)i, 0.42f);
-                can.Spin = false;
+                can.SpinSpeed = 16f;   // slow turntable, like a shelf display
                 can.transform.localRotation = Quaternion.Euler(0f, 180f + (i - 1) * 14f, 0f);
             }
 
             // tap + live bottle
-            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 1.60f, -0.30f), new Vector3(0.10f, 0.45f, 0.10f), metal, "TapPost");
-            _tapHandle = Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 2.00f, -0.18f), new Vector3(0.10f, 0.10f, 0.36f), metal, "TapHandle").transform;
+            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 2.05f, -0.30f), new Vector3(0.10f, 0.55f, 0.10f), metal, "TapPost");
+            _tapHandle = Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 2.58f, -0.18f), new Vector3(0.10f, 0.10f, 0.36f), metal, "TapHandle").transform;
             _tapMat = Mk.Mat(Palette.Cream, 0.6f);
-            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 1.52f, 0.02f), new Vector3(0.07f, 0.14f, 0.07f), metal, "Spout");
+            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 2.32f, -0.10f), new Vector3(0.07f, 0.12f, 0.07f), metal, "Spout");
             Live = Bottle.Build(transform, new Vector3(0f, 1.24f, 0.02f), 1.0f);
+            _glassTop = Mk.Empty("GlassTop", transform, new Vector3(0f, 2.12f, 0.02f)).transform;
 
             // Pour zone: a glowing ring laid on the grass. A filled disc read as a
             // white blob and fought with the product for attention.
@@ -112,6 +114,11 @@ namespace FizzyMoo
 
             _spill = MakePs("Spill", new Vector3(0f, 1.2f, 0.02f), 1.2f);
             _celebrate = MakePs("Celebrate", new Vector3(0f, 2.1f, 0.3f), 0.5f);
+            _splash = MakePs("Splash", new Vector3(0f, 2.10f, 0.02f), 0.45f);
+            var spm = _splash.main;
+            spm.startSpeed = new ParticleSystem.MinMaxCurve(0.6f, 1.8f);
+            spm.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.55f);
+            spm.gravityModifier = 1.4f;
         }
 
         ParticleSystem MakePs(string n, Vector3 p, float size)
@@ -132,7 +139,7 @@ namespace FizzyMoo
             return ps;
         }
 
-        public void Bind(CowController cow) => _cow = cow;
+        public void Bind(CowController cow) { _cow = cow; cow.PourTarget = _glassTop; }
 
         public void NextCustomer(int difficulty)
         {
@@ -171,12 +178,16 @@ namespace FizzyMoo
                 Live.SetColor(Palette.Mix(_cow.FlavorMix));
                 Live.SetFill(fill);
                 _tapHandle.localRotation = Quaternion.Euler(-38f, 0f, 0f);
+                var spm2 = _splash.main; spm2.startColor = Palette.Mix(_cow.FlavorMix);
+                var sem = _splash.emission; sem.rateOverTime = 80f;
+                if (!_splash.isPlaying) _splash.Play();
 
                 if (fill >= 1.0f) Judge(overflow: true);   // spilled everywhere
             }
             else
             {
                 _tapHandle.localRotation = Quaternion.identity;
+                if (_splash.isPlaying) { var sem = _splash.emission; sem.rateOverTime = 0f; _splash.Stop(); }
                 if (Pouring)
                 {
                     Pouring = false;

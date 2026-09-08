@@ -3,11 +3,9 @@ using UnityEngine;
 namespace FizzyMoo
 {
     /// <summary>
-    /// A glass bottle whose liquid column is driven by a 0..1 fill value.
-    /// Used twice: once as the customer's *reference* bottle (the order) and once
-    /// as the *live* bottle the player is filling. Putting the order in world space
-    /// as a physical object - rather than as text on the HUD - means the player
-    /// reads the goal by looking at the thing they are pouring into.
+    /// The glass under the tap. A pint glass rather than a bottle: the mascot
+    /// drinks from a glass with a straw on the packaging, and an open top lets
+    /// the pour visibly land in it. The liquid column is driven by a 0..1 fill.
     /// </summary>
     public class Bottle : MonoBehaviour
     {
@@ -15,11 +13,11 @@ namespace FizzyMoo
         Material _liquidMat, _glassMat;
         float _fill;
         public float Height = 0.92f;
-        public float Radius = 0.20f;
+        public float Radius = 0.22f;
 
         public static Bottle Build(Transform parent, Vector3 pos, float scale = 1f, bool ghost = false)
         {
-            var go = Mk.Empty("Bottle", parent, pos);
+            var go = Mk.Empty("Glass", parent, pos);
             go.transform.localScale = Vector3.one * scale;
             var b = go.AddComponent<Bottle>();
             b.Construct(ghost);
@@ -28,25 +26,26 @@ namespace FizzyMoo
 
         void Construct(bool ghost)
         {
-            _glassMat = Mk.Glass(new Color(0.85f, 0.93f, 0.95f, ghost ? 0.16f : 0.26f));
+            _glassMat = Mk.Glass(new Color(0.86f, 0.94f, 0.97f, ghost ? 0.16f : 0.28f));
             _liquidMat = Mk.Mat(Palette.Cream, 0.6f);
 
-            // Body + neck + cap, all cylinders.
             Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, Height * 0.5f, 0f),
                     new Vector3(Radius * 2f, Height * 0.5f, Radius * 2f), _glassMat, "Glass");
-            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, Height + 0.10f, 0f),
-                    new Vector3(Radius * 1.0f, 0.10f, Radius * 1.0f), _glassMat, "Neck");
-            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, Height + 0.22f, 0f),
-                    new Vector3(Radius * 1.15f, 0.035f, Radius * 1.15f),
-                    Mk.Mat(ghost ? new Color(0.7f, 0.7f, 0.7f) : Palette.Metal, 0.8f, 0.9f), "Cap");
+            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, Height, 0f),
+                    new Vector3(Radius * 2.12f, 0.018f, Radius * 2.12f), _glassMat, "Rim");
+            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.012f, 0f),
+                    new Vector3(Radius * 2.05f, 0.012f, Radius * 2.05f),
+                    Mk.Mat(new Color(0.80f, 0.88f, 0.92f), 0.7f), "Base");
+            var straw = Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(Radius * 0.45f, Height * 0.62f, 0f),
+                                new Vector3(0.035f, Height * 0.62f, 0.035f), Mk.Mat(Palette.Peach, 0.5f), "Straw");
+            straw.transform.localRotation = Quaternion.Euler(0f, 0f, -14f);
 
-            // Liquid column: pivot sits on the inside floor, we scale it upward.
             _liquidPivot = Mk.Empty("LiquidPivot", transform, new Vector3(0f, 0.02f, 0f)).transform;
             _liquid = Mk.Prim(PrimitiveType.Cylinder, _liquidPivot, new Vector3(0f, 0.5f, 0f),
-                              new Vector3(Radius * 1.82f, 0.5f, Radius * 1.82f), _liquidMat, "Liquid").transform;
+                              new Vector3(Radius * 1.86f, 0.5f, Radius * 1.86f), _liquidMat, "Liquid").transform;
             _foam = Mk.Prim(PrimitiveType.Cylinder, _liquidPivot, new Vector3(0f, 1.0f, 0f),
-                            new Vector3(Radius * 1.86f, 0.022f, Radius * 1.86f),
-                            Mk.Mat(new Color(1f, 1f, 1f, 1f), 0.4f), "Foam").transform;
+                            new Vector3(Radius * 1.90f, 0.022f, Radius * 1.90f),
+                            Mk.Mat(Color.white, 0.4f), "Foam").transform;
             SetFill(0f);
         }
 
@@ -66,17 +65,17 @@ namespace FizzyMoo
             bool any = h > 0.001f;
             _liquidPivot.gameObject.SetActive(any);
             if (!any) return;
-            _liquid.localScale = new Vector3(Radius * 1.82f, h * 0.5f, Radius * 1.82f);
+            _liquid.localScale = new Vector3(Radius * 1.86f, h * 0.5f, Radius * 1.86f);
             _liquid.localPosition = new Vector3(0f, h * 0.5f, 0f);
             _foam.localPosition = new Vector3(0f, h, 0f);
         }
 
-        /// <summary>Draw a thin ring at a given fill height - used to mark the target line.</summary>
+        /// <summary>Thin ring at a fill height - marks the customer's target line.</summary>
         public void AddTargetBand(float f01, Color c)
         {
             float h = f01 * (Height - 0.04f) + 0.02f;
             var band = Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, h, 0f),
-                               new Vector3(Radius * 2.16f, 0.012f, Radius * 2.16f),
+                               new Vector3(Radius * 2.2f, 0.012f, Radius * 2.2f),
                                Mk.Mat(c, 0.5f, 0f, c * 1.5f), "TargetBand");
             band.name = "TargetBand";
         }

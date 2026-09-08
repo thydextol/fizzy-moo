@@ -21,6 +21,7 @@ namespace FizzyMoo
         int _frame;
         Texture2D _tex;
         bool _done, _locked;
+        StreamWriter _ev;   // audio event track, re-scored offline into the trailer
         float _settleT;
 
         void Start()
@@ -32,6 +33,10 @@ namespace FizzyMoo
             Screen.SetResolution(Width, Height, false);
             Time.captureFramerate = Fps;
             _tex = new Texture2D(Width, Height, TextureFormat.RGB24, false);
+            _ev = new StreamWriter(Path.Combine(_dir, "events.tsv"));
+            _ev.WriteLine($"# fps={Fps}");
+            Sfx.OnPlay += (n, v, p) => _ev.WriteLine($"S\t{_frame}\t{n}\t{v:F3}\t{p:F3}");
+            Sfx.OnFizz += (v, p) => { if (_frame % 2 == 0) _ev.WriteLine($"F\t{_frame}\t{v:F3}\t{p:F3}"); };
             Debug.Log($"[FrameRecorder] -> {_dir}  {Seconds}s @ {Fps}fps");
             StartCoroutine(Capture());
         }
@@ -75,6 +80,7 @@ namespace FizzyMoo
                 if (_frame % 120 == 0) Debug.Log($"[FrameRecorder] {_frame}/{total}");
             }
             _done = true;
+            _ev?.Flush(); _ev?.Close(); _ev = null;
             Debug.Log($"[FrameRecorder] DONE {_frame} frames");
             Application.Quit(0);
         }
@@ -82,6 +88,7 @@ namespace FizzyMoo
         void OnApplicationQuit()
         {
             if (!_done) Debug.LogWarning($"[FrameRecorder] quit early at frame {_frame}");
+            _ev?.Flush(); _ev?.Close();
         }
     }
 }

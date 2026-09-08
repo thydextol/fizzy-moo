@@ -10,7 +10,7 @@ namespace FizzyMoo
     /// The carbonation model is the heart of the game. Eating a fizz-berry adds an
     /// immediate pressure spike AND raises the ongoing fermentation rate, so pressure
     /// keeps climbing on its own afterwards. That converts a simple "collect items"
-    /// loop into a risk/reward timing game: more berries means a richer, more valuable
+    /// loop into a risk/reward timing game: more fruit means a richer, more valuable
     /// flavour but a shorter fuse before she blows.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
@@ -32,7 +32,7 @@ namespace FizzyMoo
         public CowState State { get; private set; } = CowState.Grazing;
         public float Pressure { get; private set; }
         public Vector3 FlavorMix { get; private set; }      // (cola, berry, lime) accumulator
-        public int BerriesEaten { get; private set; }
+        public int FruitEaten { get; private set; }
         public float PressureNorm => Mathf.Clamp01(Pressure / MaxPressure);
         public bool CanAct => State != CowState.Launched;
 
@@ -50,10 +50,10 @@ namespace FizzyMoo
         {
             var m = FlavorMix;
             float sum = m.x + m.y + m.z;
-            if (sum < 0.0001f) { flavor = Flavor.Cola; purity = 0f; return; }
-            if (m.x >= m.y && m.x >= m.z) { flavor = Flavor.Cola;  purity = m.x / sum; }
-            else if (m.y >= m.z)          { flavor = Flavor.Berry; purity = m.y / sum; }
-            else                          { flavor = Flavor.Lime;  purity = m.z / sum; }
+            if (sum < 0.0001f) { flavor = Flavor.KeyLime; purity = 0f; return; }
+            if (m.x >= m.y && m.x >= m.z) { flavor = Flavor.KeyLime;  purity = m.x / sum; }
+            else if (m.y >= m.z)          { flavor = Flavor.OrangeCream; purity = m.y / sum; }
+            else                          { flavor = Flavor.PinaColada;  purity = m.z / sum; }
         }
 
         void Awake()
@@ -132,6 +132,14 @@ namespace FizzyMoo
             if (State == CowState.Launched)
             {
                 _stunT -= dt;
+                // Once she is falling and close to the ground, right her so she lands
+                // on her feet. Tumbling is funny; lying on her side reads as a bug.
+                if (_stunT < StunTime - 0.9f && transform.position.y < 2.4f)
+                {
+                    var upright = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, upright, 1f - Mathf.Exp(-7f * dt));
+                    _rb.angularVelocity = Vector3.Lerp(_rb.angularVelocity, Vector3.zero, 1f - Mathf.Exp(-6f * dt));
+                }
                 if (_stunT <= 0f) Recover();
                 _rig.Tick(0f, dt);
                 return;
@@ -213,9 +221,9 @@ namespace FizzyMoo
             if (!CanAct) return;
             Pressure = Mathf.Min(MaxPressure, Pressure + PressurePerBerry);
             _ferment += FermentPerBerry;
-            BerriesEaten++;
+            FruitEaten++;
             var m = FlavorMix;
-            if (f == Flavor.Cola) m.x += 1f; else if (f == Flavor.Berry) m.y += 1f; else m.z += 1f;
+            if (f == Flavor.KeyLime) m.x += 1f; else if (f == Flavor.OrangeCream) m.y += 1f; else m.z += 1f;
             FlavorMix = m;
             _rig.Wobble(5.5f);
             Sfx.I?.Play(ProcAudio.Chomp, 0.7f, Random.Range(0.9f, 1.15f));
@@ -226,7 +234,7 @@ namespace FizzyMoo
         public void ClearFlavor()
         {
             FlavorMix = Vector3.zero;
-            BerriesEaten = 0;
+            FruitEaten = 0;
         }
 
         void Blowout()
@@ -263,7 +271,7 @@ namespace FizzyMoo
 
         public void ResetAll()
         {
-            Pressure = 0f; _ferment = 0f; FlavorMix = Vector3.zero; BerriesEaten = 0;
+            Pressure = 0f; _ferment = 0f; FlavorMix = Vector3.zero; FruitEaten = 0;
             State = CowState.Grazing;
             _rb.constraints = RigidbodyConstraints.FreezeRotation;
             _rb.linearVelocity = Vector3.zero; _rb.angularVelocity = Vector3.zero;

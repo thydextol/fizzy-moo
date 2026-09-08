@@ -29,7 +29,7 @@ namespace FizzyMoo
             var cow = BuildCow();
             var stand = SodaStand.Build(transform, new Vector3(0f, 0f, 8.5f));
             stand.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            ScatterBerries(20);
+            ScatterFruit(20);
 
             var hud = HUD.Build(transform);
 
@@ -43,7 +43,7 @@ namespace FizzyMoo
             if (DemoMode)
             {
                 var auto = gameObject.AddComponent<AutoPilot>();
-                auto.Bind(cow, stand, FindObjectsByType<Berry>(FindObjectsSortMode.None));
+                auto.Bind(cow, stand, FindObjectsByType<Fruit>(FindObjectsSortMode.None));
                 auto.Enabled = true;
                 gm.Auto = auto;
             }
@@ -212,20 +212,20 @@ namespace FizzyMoo
         {
             var go = Mk.Empty("Bessie", transform, new Vector3(0f, 1.4f, -4f));
             var col = go.AddComponent<CapsuleCollider>();
-            col.radius = 0.80f; col.height = 2.40f; col.center = new Vector3(0f, 1.14f, 0f);
+            col.radius = 0.78f; col.height = 2.10f; col.center = new Vector3(0f, 1.05f, 0f);
             var mat = new PhysicsMaterial("CowPhys") { dynamicFriction = 0.3f, staticFriction = 0.3f, bounciness = 0.15f };
             col.material = mat;
             go.AddComponent<Rigidbody>();
             return go.AddComponent<CowController>();
         }
 
-        void ScatterBerries(int n)
+        void ScatterFruit(int n)
         {
             var root = Mk.Empty("Berries", transform);
             for (int i = 0; i < n; i++)
             {
-                var p = Mk.OnRing(4f, Berry.FieldRadius, _rng);
-                Berry.Spawn(root.transform, (Flavor)(i % 3), new Vector3(p.x, 0f, p.z));
+                var p = Mk.OnRing(4f, Fruit.FieldRadius, _rng);
+                Fruit.Spawn(root.transform, (Flavor)(i % 3), new Vector3(p.x, 0f, p.z));
             }
         }
     }

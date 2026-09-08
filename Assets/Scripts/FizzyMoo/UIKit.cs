@@ -11,9 +11,8 @@ namespace FizzyMoo
         {
             get
             {
-                if (_font == null)
-                    _font = Font.CreateDynamicFontFromOSFont(
-                        new[] { "Helvetica Neue", "Helvetica", "Arial", "SF Pro Text" }, 48);
+                // Prefer the real Fizzy Moo typeface; fall back to a system face.
+                if (_font == null) _font = Brand.Font;
                 return _font;
             }
         }

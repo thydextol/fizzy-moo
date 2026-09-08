@@ -5,7 +5,7 @@ namespace FizzyMoo
     /// <summary>
     /// A scripted player used to record the trailer (and as an attract mode).
     /// It plans the same way a good human does: read the order, work out how much
-    /// pressure that bottle needs, eat exactly enough berries of the right flavour,
+    /// pressure that bottle needs, eat exactly enough fruit of the right flavour,
     /// walk in, and release on the line. It deliberately fumbles one early order so
     /// the demo shows off the blowout without me having to fake it in the edit.
     /// </summary>
@@ -18,17 +18,17 @@ namespace FizzyMoo
 
         CowController _cow;
         SodaStand _stand;
-        Berry[] _berries;
-        Berry _target;
+        Fruit[] _fruit;
+        Fruit _target;
         float _t, _startT, _jitterT;
         Vector2 _jitter;
         bool _started;
         int _ordersSeen = -1;
         bool _showboat;            // this order is the intentional blowout
 
-        public void Bind(CowController cow, SodaStand stand, Berry[] berries)
+        public void Bind(CowController cow, SodaStand stand, Fruit[] fruit)
         {
-            _cow = cow; _stand = stand; _berries = berries;
+            _cow = cow; _stand = stand; _fruit = fruit;
         }
 
         public void Think(float dt, out Vector2 move, out bool vent, out bool start)
@@ -82,7 +82,7 @@ namespace FizzyMoo
                     // On the showboat order, keep eating well past what the bottle needs.
                     float goal = _showboat ? 99f : need;
                     if (_target == null || !_target.Available || _target.Flavor != cust.Want)
-                        _target = PickBerry(me, cust.Want);
+                        _target = PickFruit(me, cust.Want);
                     if (_target != null)
                         move = Steer(me, _target.transform.position, cust.Want);
                     else
@@ -123,7 +123,7 @@ namespace FizzyMoo
         float _lastPatience = -1f;
 
         /// <summary>
-        /// Steer toward a point while pushing away from berries we must not eat.
+        /// Steer toward a point while pushing away from fruit we must not eat.
         /// The cow eats anything she touches, so the route matters as much as the
         /// destination - a straight line to the right berry often runs you through
         /// three wrong ones and blows the whole bottle.
@@ -135,7 +135,7 @@ namespace FizzyMoo
 
             Vector2 avoid = Vector2.zero;
             const float R = 3.0f;
-            foreach (var b in _berries)
+            foreach (var b in _fruit)
             {
                 if (b == null || !b.Available) continue;
                 if (edible.HasValue && b.Flavor == edible.Value) continue;   // safe to hit
@@ -147,10 +147,10 @@ namespace FizzyMoo
             return Vector2.ClampMagnitude(dir + avoid, 1f);
         }
 
-        Berry PickBerry(Vector3 me, Flavor want)
+        Fruit PickFruit(Vector3 me, Flavor want)
         {
-            Berry best = null; float bestD = float.MaxValue;
-            foreach (var b in _berries)
+            Fruit best = null; float bestD = float.MaxValue;
+            foreach (var b in _fruit)
             {
                 if (b == null || !b.Available || b.Flavor != want) continue;
                 float d = (b.transform.position - me).sqrMagnitude;

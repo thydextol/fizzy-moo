@@ -9,7 +9,7 @@ namespace FizzyMoo
     /// Scoring blends two independent axes so the player has to plan the whole
     /// trip, not just the last second:
     ///   FILL    - did you release at the right moment? (motor skill)
-    ///   FLAVOUR - did you eat the right berries, and only those? (routing/planning)
+    ///   FLAVOUR - did you eat the right fruit, and only those? (routing/planning)
     /// </summary>
     public class SodaStand : MonoBehaviour
     {
@@ -54,22 +54,36 @@ namespace FizzyMoo
             foreach (float sx in new[] { -1f, 1f })
                 Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(1.6f * sx, 1.5f, -0.5f), new Vector3(0.12f, 1.5f, 0.12f), wood2, "Post");
             var awn = Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 3.02f, 0.1f), new Vector3(4.0f, 0.10f, 2.0f),
-                              Mk.Mat(Palette.Danger, 0.25f), "Awning");
+                              Mk.Mat(Palette.Peach, 0.25f), "Awning");
             awn.transform.localRotation = Quaternion.Euler(-12f, 0f, 0f);
-            // candy stripes on the awning
-            for (int i = -3; i <= 3; i++)
-                Mk.Prim(PrimitiveType.Cube, awn.transform, new Vector3(i * 0.14f, 0.6f, 0f), new Vector3(0.07f, 1.2f, 1.01f),
-                        Mk.Mat(Palette.Cream, 0.25f), "Stripe");
+            // Cream valance along the leading edge instead of the stripe row, which
+            // rendered as a set of white teeth hanging off the awning.
+            Mk.Prim(PrimitiveType.Cube, awn.transform, new Vector3(0f, 0f, 0.47f), new Vector3(1.01f, 1.6f, 0.10f),
+                    Mk.Mat(Palette.Cream, 0.25f), "Valance");
 
-            // sign
-            var sign = Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 3.55f, -0.35f), new Vector3(3.0f, 0.85f, 0.1f),
-                               Mk.Mat(Palette.Cream, 0.3f), "Sign");
-            Mk.Prim(PrimitiveType.Sphere, sign.transform, new Vector3(-0.30f, 0f, -0.7f), new Vector3(0.18f, 0.55f, 1.2f),
-                    Mk.Mat(Palette.Berry, 0.4f, 0f, Palette.Berry * 0.9f), "Blob");
-            Mk.Prim(PrimitiveType.Sphere, sign.transform, new Vector3( 0.10f, 0f, -0.7f), new Vector3(0.14f, 0.45f, 1.2f),
-                    Mk.Mat(Palette.Lime, 0.4f, 0f, Palette.Lime * 0.9f), "Blob");
-            Mk.Prim(PrimitiveType.Sphere, sign.transform, new Vector3( 0.36f, 0f, -0.7f), new Vector3(0.16f, 0.50f, 1.2f),
-                    Mk.Mat(Palette.Cola, 0.4f, 0f, Palette.Cola * 0.9f), "Blob");
+            // Sign. The stand is rotated 180 degrees, so the face the player sees is
+            // stand-local +z; the wordmark quad is parented to the stand root (not to
+            // the sign cube) so the board's non-uniform scale does not squash it.
+            Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 3.55f, -0.34f), new Vector3(3.4f, 0.95f, 0.12f),
+                    Mk.Mat(Palette.Cream, 0.3f), "Sign");
+            var mark = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Destroy(mark.GetComponent<Collider>());
+            mark.name = "Wordmark";
+            mark.transform.SetParent(transform, false);
+            mark.transform.localPosition = new Vector3(0f, 3.55f, -0.27f);
+            // Sprites/Default is Cull Off, so the quad renders from both sides and
+            // the player-facing side (stand-local -z) showed the artwork mirrored.
+            mark.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            mark.transform.localScale = new Vector3(2.75f, 0.78f, 1f);
+            mark.GetComponent<Renderer>().sharedMaterial = Mk.Unlit(Brand.Wordmark, Color.white);
+
+            // the product line, on display where customers queue
+            for (int i = 0; i < 3; i++)
+            {
+                var can = Can.Build(transform, new Vector3(-0.95f + i * 0.95f, 1.22f, -0.34f), (Flavor)i, 0.42f);
+                can.Spin = false;
+                can.transform.localRotation = Quaternion.Euler(0f, 180f + (i - 1) * 14f, 0f);
+            }
 
             // tap + live bottle
             Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 1.60f, -0.30f), new Vector3(0.10f, 0.45f, 0.10f), metal, "TapPost");
@@ -78,10 +92,19 @@ namespace FizzyMoo
             Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 1.52f, 0.02f), new Vector3(0.07f, 0.14f, 0.07f), metal, "Spout");
             Live = Bottle.Build(transform, new Vector3(0f, 1.24f, 0.02f), 1.0f);
 
-            // pour zone marker on the grass
-            _zoneMat = Mk.Mat(new Color(1f, 1f, 1f, 1f), 0.3f, 0f, Palette.Gold * 0.4f);
-            _zoneDisc = Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.015f, 1.9f),
-                                new Vector3(ServeRadius * 1.55f, 0.012f, ServeRadius * 1.55f), _zoneMat, "PourZone").transform;
+            // Pour zone: a glowing ring laid on the grass. A filled disc read as a
+            // white blob and fought with the product for attention.
+            var ringTex = UIKit.Radial(256, 0.82f, 1f, true).texture;
+            _zoneMat = Mk.Unlit(ringTex, Palette.Gold);
+            var zoneQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            Destroy(zoneQuad.GetComponent<Collider>());
+            zoneQuad.name = "PourZone";
+            zoneQuad.transform.SetParent(transform, false);
+            zoneQuad.transform.localPosition = new Vector3(0f, 0.02f, 1.9f);
+            zoneQuad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            zoneQuad.transform.localScale = new Vector3(ServeRadius * 2.5f, ServeRadius * 2.5f, 1f);
+            zoneQuad.GetComponent<Renderer>().sharedMaterial = _zoneMat;
+            _zoneDisc = zoneQuad.transform;
 
             Customer = Customer.Build(transform, new Vector3(-2.55f, 0f, 0.15f));
             Customer.transform.localRotation = Quaternion.Euler(0f, 78f, 0f);
@@ -134,9 +157,9 @@ namespace FizzyMoo
             CowInZone = flat.magnitude <= ServeRadius + 1.2f;
 
             // Zone marker glows when you are standing in it and ready to pour.
-            var zc = CowInZone ? Palette.Gold : Color.white;
-            _zoneMat.color = new Color(zc.r, zc.g, zc.b, 1f);
-            _zoneMat.SetColor("_EmissionColor", zc * (CowInZone ? 0.55f + Ease.Pulse(_phase, 1.6f) * 0.35f : 0.12f));
+            var zc = CowInZone ? Palette.Gold : Palette.Cream;
+            float za = CowInZone ? 0.55f + Ease.Pulse(_phase, 1.6f) * 0.40f : 0.30f;
+            _zoneMat.color = new Color(zc.r, zc.g, zc.b, za);
 
             bool active = Customer != null && Customer.Active && _lockout <= 0f;
 

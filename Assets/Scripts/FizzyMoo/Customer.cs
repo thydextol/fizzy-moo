@@ -16,7 +16,7 @@ namespace FizzyMoo
 
         Transform _body, _head, _armL, _armR, _patienceRing;
         Material _shirtMat, _ringMat;
-        Bottle _reference;
+        Can _reference;
         float _phase;
         static System.Random _rng = new System.Random(99);
 
@@ -30,7 +30,7 @@ namespace FizzyMoo
 
         void Construct()
         {
-            _shirtMat = Mk.Mat(Palette.Cola, 0.2f);
+            _shirtMat = Mk.Mat(Palette.KeyLime, 0.2f);
             var skin = Mk.Mat(new Color(0.93f, 0.78f, 0.63f), 0.25f);
 
             _body = Mk.Empty("Body", transform, new Vector3(0f, 0f, 0f)).transform;
@@ -44,9 +44,12 @@ namespace FizzyMoo
             Mk.Prim(PrimitiveType.Cylinder, _body, new Vector3(-0.12f, 0.14f, 0f), new Vector3(0.15f, 0.18f, 0.15f), Mk.Mat(new Color(0.25f, 0.28f, 0.40f)), "LegL");
             Mk.Prim(PrimitiveType.Cylinder, _body, new Vector3( 0.12f, 0.14f, 0f), new Vector3(0.15f, 0.18f, 0.15f), Mk.Mat(new Color(0.25f, 0.28f, 0.40f)), "LegR");
 
-            // The order, held up as a real object: a ghost bottle filled to target.
-            var holder = Mk.Empty("OrderHolder", transform, new Vector3(0f, 1.85f, 0f)).transform;
-            _reference = Bottle.Build(holder, Vector3.zero, 0.62f, ghost: true);
+            // The order is shown as the actual product: the customer holds up a
+            // real Fizzy Moo can in the flavour they want. Doubles as constant,
+            // diegetic product placement without a single UI overlay.
+            var holder = Mk.Empty("OrderHolder", transform, new Vector3(0f, 1.72f, 0f)).transform;
+            _reference = Can.Build(holder, Vector3.zero, Flavor.KeyLime, 0.66f);
+            _reference.Bob = 0.05f;
 
             // Patience ring - a flat disc that shrinks as time runs out.
             _ringMat = Mk.Mat(Palette.Gold, 0.4f, 0f, Palette.Gold * 0.8f);
@@ -66,10 +69,8 @@ namespace FizzyMoo
 
             var c = Palette.Of(Want);
             _shirtMat.color = c;
-            _reference.SetColor(c);
-            _reference.SetFill(WantFill);
-            _reference.ClearBands();
-            _reference.AddTargetBand(WantFill, Color.white);
+            _reference.Set(Want, 0.66f);
+            _reference.Bob = 0.05f;
             transform.localScale = Vector3.zero;
             StartCoroutine(PopIn());
         }

@@ -86,7 +86,7 @@ namespace FizzyMoo
             _gaugeGlow = UIKit.Img("GaugeGlow", _gaugeRoot, new Color(1f, 1f, 1f, 0f), UIKit.Ring);
             Stretch(_gaugeGlow.rectTransform, 26f);
 
-            _gaugeFill = UIKit.Img("GaugeFill", _gaugeRoot, Palette.Lime, UIKit.Ring);
+            _gaugeFill = UIKit.Img("GaugeFill", _gaugeRoot, Palette.PinaColada, UIKit.Ring);
             Stretch(_gaugeFill.rectTransform, 0f);
             _gaugeFill.type = Image.Type.Filled;
             _gaugeFill.fillMethod = Image.FillMethod.Radial360;
@@ -104,7 +104,7 @@ namespace FizzyMoo
             // --- flavour mix bars (under the gauge) ---------------------------------
             var mixRoot = UIKit.Rect("Mix", root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 1f),
                                      new Vector2(200f, -200f), new Vector2(230f, 100f));
-            string[] nm = { "COLA", "BERRY", "LIME" };
+            string[] nm = { "LIME", "ORANGE", "PINA" };
             for (int i = 0; i < 3; i++)
             {
                 float x = (i - 1) * 74f;
@@ -142,8 +142,9 @@ namespace FizzyMoo
             }
 
             // --- title / game-over panels ------------------------------------------------
-            _panelTitle = BuildPanel(root, out _bigTitle, out _bigSub, "FIZZY  MOO",
+            _panelTitle = BuildPanel(root, out _bigTitle, out _bigSub, "",
                                      "WASD / ARROWS to graze      SPACE to pour\n\nPress  SPACE  to start");
+            BuildWordmark(_panelTitle);
             _panelOver = BuildPanel(root, out var ot, out var os, "TIME!", "");
             _overTitle = ot; _overSub = os;
             _panelOver.gameObject.SetActive(false);
@@ -160,9 +161,43 @@ namespace FizzyMoo
                                 new Vector2(0f, 120f), new Vector2(1500f, 200f));
             title = UIKit.LabelShadowed("Title", tb, t, 150, Palette.Cream);
             var sb = UIKit.Rect("S", p, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-                                new Vector2(0f, -110f), new Vector2(1500f, 320f));
+                                new Vector2(0f, -170f), new Vector2(1500f, 320f));
             sub = UIKit.LabelShadowed("Sub", sb, s, 44, new Color(1f, 1f, 1f, 0.9f));
             return p;
+        }
+
+
+        /// <summary>
+        /// The wordmark artwork is solid black with an alpha channel, so tinting it
+        /// light is not possible - it is laid on a cream card instead, which is also
+        /// how the logo is locked up on the packaging.
+        /// </summary>
+        void BuildWordmark(RectTransform panel)
+        {
+            var tex = Brand.Wordmark;
+            if (tex == null) { _bigTitle.text = "FIZZY MOO"; return; }
+            _bigTitle.text = "";
+            var sh = _bigTitle.GetComponent<ShadowLink>();
+            if (sh != null && sh.Shadow != null) sh.Shadow.text = "";
+
+            float aspect = tex.width / (float)tex.height;
+            var card = UIKit.Img("LogoCard", panel, Palette.Cream);
+            card.rectTransform.anchorMin = card.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            card.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            card.rectTransform.anchoredPosition = new Vector2(0f, 168f);
+            card.rectTransform.sizeDelta = new Vector2(760f, 760f / aspect + 90f);
+
+            var logo = UIKit.Img("LogoMark", card.transform, Color.white,
+                                 Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), Vector2.one * 0.5f));
+            logo.preserveAspect = true;
+            logo.rectTransform.anchorMin = logo.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            logo.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            logo.rectTransform.anchoredPosition = Vector2.zero;
+            logo.rectTransform.sizeDelta = new Vector2(660f, 660f / aspect);
+
+            var tagBox = UIKit.Rect("TagBox", panel, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                    new Vector2(0f, 6f), new Vector2(1200f, 60f));
+            UIKit.LabelShadowed("Tagline", tagBox, Brand.Tagline, 46, Palette.Peach);
         }
 
         static void Stretch(RectTransform rt, float pad)
@@ -207,7 +242,7 @@ namespace FizzyMoo
 
             _gaugeFill.fillAmount = Mathf.Lerp(_gaugeFill.fillAmount, pressure01, dt * 14f);
             // Green -> amber -> red as the fuse burns down.
-            var gc = pressure01 < 0.55f ? Color.Lerp(Palette.Lime, Palette.Gold, pressure01 / 0.55f)
+            var gc = pressure01 < 0.55f ? Color.Lerp(Palette.PinaColada, Palette.Gold, pressure01 / 0.55f)
                                         : Color.Lerp(Palette.Gold, Palette.Danger, (pressure01 - 0.55f) / 0.45f);
             _gaugeFill.color = gc;
             _psi.text = Mathf.RoundToInt(pressure01 * CowController.MaxPressure).ToString();

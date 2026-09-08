@@ -43,7 +43,7 @@ namespace FizzyMoo.EditorTools
         /// </summary>
         static void EnsureAlwaysIncludedShaders()
         {
-            string[] names = { "Standard", "UI/Default", "Sprites/Default" };
+            string[] names = { "Standard", "UI/Default", "Sprites/Default", "FizzyMoo/Outline" };
             var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
             if (assets == null || assets.Length == 0) { Debug.LogWarning("[FizzyMoo] GraphicsSettings not found"); return; }
 

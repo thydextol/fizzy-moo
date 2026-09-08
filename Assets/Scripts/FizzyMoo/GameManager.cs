@@ -142,7 +142,7 @@ namespace FizzyMoo
                 if (Cow.State == CowState.Launched) Hud.SetHint("");
                 else if (Cow.PressureNorm > 0.85f)  Hud.SetHint("SHE'S GONNA BLOW - VENT NOW!");
                 else if (Stand.CowInZone)           Hud.SetHint("HOLD  SPACE  TO POUR - MATCH THE LINE");
-                else if (Cow.PressureNorm < 0.12f)  Hud.SetHint("EAT BERRIES TO BUILD PRESSURE");
+                else if (Cow.PressureNorm < 0.12f)  Hud.SetHint("EAT FRUIT TO BUILD PRESSURE");
                 else                                Hud.SetHint("GET TO THE STAND");
             }
             else Hud.SetHint("");
@@ -170,7 +170,7 @@ namespace FizzyMoo
             Hud.ShowGameOver(true, "TIME!",
                 $"{Score} POINTS   -   {grade}\n\n" +
                 $"{Served} served     {Perfect} perfect     {Blowouts} blowouts\n\n" +
-                "Press  R  to run it back");
+                "Press  R  to run it back\n\n" + Brand.Tagline);
             Sfx.I?.Play(ProcAudio.Moo, 0.9f, 0.85f);
         }
 

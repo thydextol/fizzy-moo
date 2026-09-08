@@ -99,7 +99,7 @@ namespace FizzyMoo
                 }
 
                 case Mode.Approach:
-                    move = Steer(me, standPos + new Vector3(0f, 0f, -SodaStand.ServeRadius * 0.45f));
+                    move = Steer(me, standPos + new Vector3(0f, 0f, -SodaStand.ServeRadius * 0.45f), null, avoidStand: false);
                     break;
 
                 case Mode.Pour:
@@ -137,11 +137,25 @@ namespace FizzyMoo
         /// destination - a straight line to the right berry often runs you through
         /// three wrong ones and blows the whole bottle.
         /// </summary>
-        Vector2 Steer(Vector3 from, Vector3 to, Flavor? edible = null)
+        Vector2 Steer(Vector3 from, Vector3 to, Flavor? edible = null, bool avoidStand = true)
         {
             var d = to - from; d.y = 0f;
             Vector2 dir = d.sqrMagnitude < 0.16f ? Vector2.zero : new Vector2(d.x, d.z).normalized;
             if (d.magnitude < 2.0f) return dir;      // commit: no dodging in the last two metres
+
+            // The counter is solid now: slide around the stand instead of leaning on it.
+            if (avoidStand)
+            {
+                var so = _stand.transform.position - from; so.y = 0f;
+                float sd = so.magnitude;
+                if (sd < 4.2f && sd > 0.01f)
+                {
+                    var sn = new Vector2(so.x, so.z) / sd;
+                    float w = 1f - sd / 4.2f;
+                    dir += -sn * (w * 2.4f) + new Vector2(-sn.y, sn.x) * (Vector2.Dot(new Vector2(-sn.y, sn.x), dir) >= 0f ? 1f : -1f) * (w * 1.6f);
+                    dir = dir.normalized;
+                }
+            }
 
             Vector2 avoid = Vector2.zero;
             const float R = 3.0f;

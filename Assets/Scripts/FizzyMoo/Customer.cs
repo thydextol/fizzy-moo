@@ -21,11 +21,11 @@ namespace FizzyMoo
         static int _sayIdx;
         const float Size = 1.22f;       // a bit over life-size so they read from across the meadow
 
-        Transform _body, _head, _armL, _armR, _patienceRing, _hair, _hat, _card;
-        Material _shirtMat, _ringMat, _skinMat, _hairMat;
+        Transform _body, _head, _armL, _armR, _hair, _hat, _card;
+        Material _shirtMat, _skinMat, _hairMat;
         Can _reference;
         Text _cardName, _cardPct, _cardReact;
-        Image _cardBg, _glassFill, _glassLine;
+        Image _cardBg, _glassFill, _glassLine, _pie;
         Camera _cam;
         float _phase, _reactT;
         static System.Random _rng = new System.Random(99);
@@ -76,13 +76,7 @@ namespace FizzyMoo
 
             BuildCard();
 
-            // Patience: a band on the grass in its own colour family (cream -> red), so it is
-            // not confused with the gold pour ring a metre away.
-            _ringMat = Mk.Mat(Palette.Cream, 0.4f, 0f, Palette.Cream * 0.4f);
-            _patienceRing = Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.02f, 0f),
-                                    new Vector3(1.7f, 0.02f, 1.7f), _ringMat, "PatienceRing").transform;
-            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.035f, 0f),
-                    new Vector3(1.25f, 0.02f, 1.25f), Mk.Mat(Palette.GrassDark, 0.05f), "PatienceInner");
+            // (patience lives on the order card - see BuildCard)
         }
 
         /// <summary>Billboarded order card: flavour name + a mini glass with the target line.</summary>
@@ -90,7 +84,7 @@ namespace FizzyMoo
         {
             var go = new GameObject("OrderCard", typeof(RectTransform), typeof(Canvas));
             go.transform.SetParent(transform, false);
-            go.transform.localPosition = new Vector3(0f, 3.05f, 0f);
+            go.transform.localPosition = new Vector3(0f, 3.40f, 0f);   // clear of the 0.95 can
             go.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
             var rt = (RectTransform)go.transform;
             rt.sizeDelta = new Vector2(360f, 124f);
@@ -111,8 +105,14 @@ namespace FizzyMoo
             var pctBox = UIKit.Rect("PctBox", rt, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
                                     new Vector2(18f, -30f), new Vector2(268f, 40f));
             _cardPct = UIKit.Label("Pct", pctBox, "FILL TO 70%", 28, new Color(0.25f, 0.25f, 0.28f), TextAnchor.MiddleLeft);
-            var reactBox = UIKit.Rect("ReactBox", rt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            _cardReact = UIKit.Label("React", reactBox, "", 62, Palette.Gold);
+            var reactBox = UIKit.Rect("ReactBox", rt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(-28f, -16f));
+            _cardReact = UIKit.Label("React", reactBox, "", 56, Palette.Gold);
+            // The punchline must fit the card: shrink to fit, wrap to two lines.
+            _cardReact.resizeTextForBestFit = true;
+            _cardReact.resizeTextMinSize = 20;
+            _cardReact.resizeTextMaxSize = 56;
+            _cardReact.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _cardReact.verticalOverflow = VerticalWrapMode.Truncate;
             _cardReact.gameObject.SetActive(false);
 
             // mini glass at the right: outline, liquid to the target, and the white line
@@ -132,6 +132,21 @@ namespace FizzyMoo
             _glassLine.rectTransform.anchorMin = new Vector2(-0.25f, 0f); _glassLine.rectTransform.anchorMax = new Vector2(1.25f, 0f);
             _glassLine.rectTransform.pivot = new Vector2(0.5f, 0.5f);
             _glassLine.rectTransform.sizeDelta = new Vector2(0f, 5f);
+
+            // Patience as a draining ring ON the card, where the eye already is.
+            var pieBack = UIKit.Img("PieBack", rt, new Color(0f, 0f, 0f, 0.35f), UIKit.Ring);
+            pieBack.rectTransform.anchorMin = pieBack.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+            pieBack.rectTransform.pivot = new Vector2(0f, 0.5f);
+            pieBack.rectTransform.anchoredPosition = new Vector2(14f, 0f);
+            pieBack.rectTransform.sizeDelta = new Vector2(104f, 104f);
+            _pie = UIKit.Img("Pie", pieBack.transform, Palette.Gold, UIKit.Ring);
+            _pie.rectTransform.anchorMin = Vector2.zero; _pie.rectTransform.anchorMax = Vector2.one;
+            _pie.rectTransform.offsetMin = Vector2.zero; _pie.rectTransform.offsetMax = Vector2.zero;
+            _pie.type = Image.Type.Filled;
+            _pie.fillMethod = Image.FillMethod.Radial360;
+            _pie.fillOrigin = (int)Image.Origin360.Top;
+            _pie.fillClockwise = true;
+            _pie.fillAmount = 1f;
         }
 
         void Restyle(int seed)
@@ -173,6 +188,7 @@ namespace FizzyMoo
             _cardReact.gameObject.SetActive(false);
             _cardName.gameObject.SetActive(true); _cardPct.gameObject.SetActive(true);
             _cardBg.color = Palette.Cream;
+            _pie.fillAmount = 1f; _pie.color = Palette.Gold; _pie.transform.localScale = Vector3.one;
 
             transform.localScale = Vector3.zero;
             StartCoroutine(PopIn());
@@ -249,9 +265,9 @@ namespace FizzyMoo
 
             PatienceLeft -= Time.deltaTime;
             float p = Mathf.Clamp01(PatienceLeft / Patience);
-            _patienceRing.localScale = new Vector3(1.5f * p, 0.02f, 1.5f * p);
-            _ringMat.color = Color.Lerp(Palette.Danger, Palette.Cream, p);
-            _ringMat.SetColor("_EmissionColor", _ringMat.color * (p < 0.3f ? Ease.Pulse(_phase, 4f) * 1.4f : 0.6f));
+            _pie.fillAmount = p;
+            _pie.color = Color.Lerp(Palette.Danger, Palette.Gold, p);
+            _pie.transform.localScale = Vector3.one * (p < 0.3f ? 1f + Ease.Pulse(_phase, 3f) * 0.18f : 1f);
             // the card blushes red as patience runs out
             _cardBg.color = p < 0.3f ? Color.Lerp(Palette.Cream, new Color(1f, 0.80f, 0.76f), Ease.Pulse(_phase, 3f)) : Palette.Cream;
 

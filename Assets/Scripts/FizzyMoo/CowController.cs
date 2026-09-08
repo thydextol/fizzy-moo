@@ -97,11 +97,11 @@ namespace FizzyMoo
             // One-shot explosion of foam on a blowout.
             _burst = MakePs("Burst", new Vector3(0f, 0.5f, 0f), Quaternion.identity);
             var bm = _burst.main;
-            bm.startSpeed = new ParticleSystem.MinMaxCurve(6f, 15f);
-            bm.startSize = new ParticleSystem.MinMaxCurve(0.10f, 0.34f);
-            bm.startLifetime = new ParticleSystem.MinMaxCurve(0.7f, 1.5f);
+            bm.startSpeed = new ParticleSystem.MinMaxCurve(7f, 18f);
+            bm.startSize = new ParticleSystem.MinMaxCurve(0.24f, 0.65f);
+            bm.startLifetime = new ParticleSystem.MinMaxCurve(0.9f, 1.7f);
             bm.gravityModifier = 1.1f;
-            var bsh = _burst.shape; bsh.shapeType = ParticleSystemShapeType.Sphere; bsh.radius = 0.35f;
+            var bsh = _burst.shape; bsh.shapeType = ParticleSystemShapeType.Sphere; bsh.radius = 0.5f;
             var bem = _burst.emission; bem.rateOverTime = 0f;
         }
 
@@ -295,6 +295,7 @@ namespace FizzyMoo
 
         void Blowout()
         {
+            var foamCol = Color.Lerp(Color.white, Palette.Mix(FlavorMix), 0.6f);   // before the mix is zeroed
             State = CowState.Launched;
             _stunT = StunTime;
             _righting = false;
@@ -309,7 +310,8 @@ namespace FizzyMoo
             _rb.AddForce(new Vector3(Random.Range(-3f, 3f), 17f, Random.Range(-3f, 3f)), ForceMode.VelocityChange);
             _rb.AddTorque(Random.insideUnitSphere * 26f, ForceMode.VelocityChange);
 
-            _burst.Emit(190);
+            var bm2 = _burst.main; bm2.startColor = foamCol;
+            _burst.Emit(320);
             _fizzJet.Stop(); _warnPuff.Stop();
             _rig.Wobble(14f);
             Sfx.I?.Play(ProcAudio.Launch, 0.85f);
@@ -324,6 +326,12 @@ namespace FizzyMoo
             transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
             var p = transform.position;
             transform.position = new Vector3(Mathf.Clamp(p.x, -22f, 22f), 1.2f, Mathf.Clamp(p.z, -22f, 22f));
+            if (PourTarget != null)
+            {
+                var st = PourTarget.parent;
+                var local = st.InverseTransformPoint(transform.position);
+                if (Mathf.Abs(local.x) < 2.3f && Mathf.Abs(local.z) < 1.6f) { local.z = 2.4f; transform.position = st.TransformPoint(local); }
+            }
             _rb.linearVelocity = Vector3.zero;
             _rb.angularVelocity = Vector3.zero;
             _rig.Wobble(6f);

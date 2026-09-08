@@ -36,9 +36,9 @@ namespace FizzyMoo
 
             // A three-quarter offset rather than dead-behind: it shows the cow's
             // spots and the swelling udder instead of just her rear end.
-            float dist = airborne ? 11.0f : Mathf.Lerp(6.6f, 7.4f, p);
-            float height = airborne ? 7.0f : Mathf.Lerp(3.4f, 3.9f, p);
-            float side = airborne ? 3.6f : 2.7f;
+            float dist = airborne ? 8.5f : Mathf.Lerp(6.6f, 7.4f, p);
+            float height = airborne ? 5.5f : Mathf.Lerp(3.4f, 3.9f, p);
+            float side = airborne ? 3.0f : 2.7f;
 
             var desired = Target.position + new Vector3(side, height, -dist);
             transform.position = Vector3.SmoothDamp(transform.position, desired, ref _vel, airborne ? 0.22f : 0.30f);

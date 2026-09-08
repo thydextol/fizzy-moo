@@ -19,6 +19,7 @@ namespace FizzyMoo
         public Customer Customer { get; private set; }
         public Bottle Live { get; private set; }
         public bool CowInZone { get; private set; }
+        public int OrderSeq { get; private set; }
         public bool Pouring { get; private set; }
         public float Charge { get; private set; }   // pressure units currently in the bottle
 
@@ -52,6 +53,10 @@ namespace FizzyMoo
             // counter
             Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 0.55f, 0f), new Vector3(3.4f, 1.1f, 1.3f), wood, "Counter", collider: true);
             Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 1.16f, 0f), new Vector3(3.7f, 0.12f, 1.55f), wood2, "CounterTop");
+            // Invisible blocker deeper than the counter so Bessie's muzzle stays out of the wood.
+            var block = Mk.Empty("CounterBlock", transform, new Vector3(0f, 0.6f, 0f));
+            var bc = block.AddComponent<BoxCollider>();
+            bc.size = new Vector3(3.6f, 1.2f, 2.2f);
             // posts + awning
             foreach (float sx in new[] { -1f, 1f })
                 Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(1.6f * sx, 1.5f, -0.5f), new Vector3(0.12f, 1.5f, 0.12f), wood2, "Post");
@@ -82,7 +87,7 @@ namespace FizzyMoo
             // the product line, on display where customers queue
             for (int i = 0; i < 3; i++)
             {
-                var can = Can.Build(transform, new Vector3(-1.05f + i * 1.05f, 1.22f, -0.34f), (Flavor)i, 0.56f);
+                var can = Can.Build(transform, new Vector3(-1.15f + i * 1.15f, 1.22f, -0.60f), (Flavor)i, 0.56f);
                 can.SpinSpeed = 16f;   // slow turntable, like a shelf display
                 can.transform.localRotation = Quaternion.Euler(0f, 180f + (i - 1) * 14f, 0f);
             }
@@ -144,6 +149,7 @@ namespace FizzyMoo
 
         public void NextCustomer(int difficulty)
         {
+            OrderSeq++;
             _difficulty = difficulty;
             Charge = 0f;
             Live.SetFill(0f);
@@ -260,6 +266,11 @@ namespace FizzyMoo
                 Sfx.I?.Play(ProcAudio.Buzz, 0.45f);
             }
 
+            // A second burst at the customer's head so the reaction reads from the chase cam.
+            _celebrate.transform.position = Customer.transform.position + Vector3.up * 2.4f;
+            var cmC = _celebrate.main;
+            cmC.startColor = quality > 0.5f ? (perfect ? Palette.Gold : Palette.Of(Customer.Want)) : new Color(0.55f, 0.55f, 0.58f);
+            _celebrate.Emit(perfect ? 90 : quality > 0.5f ? 45 : 25);
             Customer.React(quality > 0.5f, quality);
             _cow.ClearFlavor(Charge);
             _lockout = 1.0f;

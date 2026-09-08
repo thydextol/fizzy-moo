@@ -57,10 +57,13 @@ namespace FizzyMoo
 
             if (haveOrder)
             {
-                // New order? decide whether to showboat.
-                int id = Mathf.RoundToInt(cust.PatienceLeft * 1000f);
-                if (_lastPatience < cust.PatienceLeft) { _ordersSeen++; _showboat = _ordersSeen == 1 || _ordersSeen == 12; _reckless = _ordersSeen == 6; }
-                _lastPatience = cust.PatienceLeft;
+                // New order? (counted by the stand's sequence number, not by patience jumps)
+                if (_stand.OrderSeq != _lastSeq)
+                {
+                    _lastSeq = _stand.OrderSeq; _ordersSeen++;
+                    _showboat = _ordersSeen == 2 || _ordersSeen == 12;   // blowouts on the 3rd and 13th orders
+                    _reckless = _ordersSeen == 6;                         // one sloppy pour on the 7th
+                }
 
                 if (_mode == Mode.Wait || _mode == Mode.Bleed)
                     _mode = p < need ? Mode.Gather : Mode.Approach;
@@ -102,6 +105,8 @@ namespace FizzyMoo
                 case Mode.Pour:
                 {
                     move = Vector2.zero;
+                    // Never pour flavourless cream: if the tank was dumped, go and eat first.
+                    if (_cow.FruitEaten == 0 && !_stand.Pouring) { _mode = Mode.Gather; break; }
                     float fill = _stand.Live.Fill;
                     // Release a hair before the line: one frame of venting is ~0.011 fill.
                     float stopAt = cust.WantFill - 0.006f;
@@ -124,7 +129,7 @@ namespace FizzyMoo
             if (move.sqrMagnitude > 0.01f) move = Vector2.ClampMagnitude(move + _jitter, 1f);
         }
 
-        float _lastPatience = -1f;
+        int _lastSeq = -1;
 
         /// <summary>
         /// Steer toward a point while pushing away from fruit we must not eat.

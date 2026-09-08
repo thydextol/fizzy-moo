@@ -33,6 +33,8 @@ namespace FizzyMoo
         Material _beaconMat;
         Transform[] _path = new Transform[8];   // marching dots on the grass, cow -> stand
         float _orderAge;            // seconds since the current order appeared
+        float _teachT;              // seconds left on the post-blowout lesson
+        bool _hurry;
 
         void Start()
         {
@@ -106,6 +108,7 @@ namespace FizzyMoo
             Hud.Popup("BLOWOUT!  100 PSI", Palette.Danger);
             Hud.Flash(Palette.Danger, 1f);
             Cam.Shake(0.9f);
+            _teachT = 5f;
         }
 
         void NextOrder()
@@ -160,6 +163,7 @@ namespace FizzyMoo
                     Cow.SetInput(move, vent);
                     TimeLeft -= dt;
                     _orderAge += dt;
+                    if (_teachT > 0f) _teachT -= dt;
                     if (TimeLeft <= 0f) { TimeLeft = 0f; End(); }
                     break;
 
@@ -176,8 +180,13 @@ namespace FizzyMoo
             bool order = Phase == Phase.Playing && cust != null && cust.Active;
             Fruit.Wanted = order ? cust.Want : (Flavor?)null;
 
+            // Last six seconds of patience: the order line turns red and says so, once with a tick.
+            bool hurry = order && cust.PatienceLeft < 6f && !Stand.Pouring;
+            if (hurry && !_hurry) Sfx.I?.Play(ProcAudio.Tick, 0.7f);
+            _hurry = hurry;
             if (order)
-                Hud.SetOrder("ORDER   " + Palette.Name(cust.Want) + "   " + Mathf.RoundToInt(cust.WantFill * 100f) + "%", Palette.Of(cust.Want));
+                Hud.SetOrder((hurry ? "HURRY!   " : "ORDER   ") + Palette.Name(cust.Want) + "   " + Mathf.RoundToInt(cust.WantFill * 100f) + "%",
+                             hurry ? Palette.Danger : Palette.Of(cust.Want));
             else Hud.SetOrder("", Palette.Cream);
 
             Hud.SetGlass(order && Stand.CowInZone && Cow.State != CowState.Launched,
@@ -189,7 +198,12 @@ namespace FizzyMoo
                         Cow.FruitEaten > 0 ? Palette.Of(tankDom) : Palette.Cream);
 
             bool showBeacon = false;
-            if (Phase == Phase.Playing) Hud.SetHint(Directive(cust, order, out showBeacon));
+            if (Phase == Phase.Playing)
+            {
+                string h = Directive(cust, order, out showBeacon);
+                if (hurry && Cow.State != CowState.Launched && _teachT <= 0f) h = "HURRY  -  " + h;
+                Hud.SetHint(h);
+            }
             else Hud.SetHint("");
             UpdateBeacon(showBeacon, dt);
         }
@@ -199,6 +213,7 @@ namespace FizzyMoo
         {
             beacon = false;
             if (Cow.State == CowState.Launched) return "OOPS.  SHE'LL BE FINE.";
+            if (_teachT > 0f) return "BLOWOUT!  FRUIT KEEPS FERMENTING  -  POUR BEFORE 100 PSI";
             if (Stand.Pouring) return "RELEASE ON THE LINE!";
             if (Cow.PressureNorm > 0.85f)
                 return Stand.CowInZone ? "SHE'S GONNA BLOW  -  HOLD SPACE, POUR NOW!" : "SHE'S GONNA BLOW  -  HOLD SPACE TO VENT!";
@@ -208,19 +223,20 @@ namespace FizzyMoo
             float have = Cow.Pressure;
             Cow.DominantFlavor(out var dom, out var purity);
             bool tankHasWrong = Cow.FruitEaten > 0 && (dom != cust.Want || purity < 0.6f);
+            string fruit = cust.Want == Flavor.KeyLime ? "LIME" : cust.Want == Flavor.OrangeCream ? "ORANGE" : "PINEAPPLE";
 
             if (Stand.CowInZone)
             {
-                if (have < need - 1f) return "NOT ENOUGH PRESSURE  -  EAT " + Palette.Short(cust.Want) + " FRUIT";
+                if (tankHasWrong) return "WRONG FRUIT IN THE TANK  -  STEP OUT OF THE RING, HOLD SPACE TO DUMP IT";
+                if (have < need - 1f) return "NOT ENOUGH PRESSURE  -  EAT MORE " + fruit + "S";
                 return "HOLD  SPACE  TO POUR  -  RELEASE ON THE LINE";
             }
             if (tankHasWrong && have > need * 0.5f)
-                return "WRONG FRUIT IN THE TANK  -  HOLD SPACE OUT HERE TO VENT IT";
+                return "WRONG FRUIT IN THE TANK  -  HOLD SPACE OUT HERE UNTIL IT'S EMPTY";
 
             int more = Mathf.CeilToInt(Mathf.Max(0f, need - have) / 13f);
             if (more > 0)
             {
-                string fruit = cust.Want == Flavor.KeyLime ? "LIME" : cust.Want == Flavor.OrangeCream ? "ORANGE" : "PINEAPPLE";
                 if (_orderAge < 3.5f && Served == 0)
                     return "THEY WANT " + Palette.Name(cust.Want) + "  -  EAT THE GLOWING " + fruit + "S";
                 return "EAT " + more + " MORE " + fruit + (more == 1 ? "" : "S") + "  (" + Mathf.RoundToInt(have) + "/" + Mathf.RoundToInt(need) + " PSI)";
@@ -281,7 +297,7 @@ namespace FizzyMoo
             Hud.ShowGameOver(false);
             Sfx.I?.Play(ProcAudio.Moo, 0.8f);
             Stand.NextCustomer(0);
-            _orderAge = 0f;
+            _orderAge = 0f; _teachT = 0f; _hurry = false;
         }
 
         void End()
@@ -291,11 +307,15 @@ namespace FizzyMoo
             // She keeps fermenting otherwise and blows out under the results card.
             Cow.Calm();
             Fruit.Wanted = null;
+            Combo = 0;
             string grade = Score >= 2200 ? "MASTER BREWER" : Score >= 1200 ? "HEAD OF DAIRY"
                          : Score >= 600 ? "APPRENTICE"   : "INTERN";
+            string blow = Blowouts == 0 ? "Zero blowouts. Bessie is suspicious of you."
+                        : Blowouts == 1 ? "1 blowout. She's fine. Probably."
+                        : $"{Blowouts} blowouts. Bessie has filed a complaint.";
             Hud.ShowGameOver(true, "TIME!",
                 $"{Score} POINTS   -   {grade}\n\n" +
-                $"{Served} served     {Perfect} perfect     {Blowouts} blowouts\n\n" +
+                $"{Served} served     {Perfect} perfect\n{blow}\n\n" +
                 "Press  R  to run it back\n\n" + Brand.Tagline);
             Sfx.I?.Play(ProcAudio.Moo, 0.9f, 0.85f);
         }

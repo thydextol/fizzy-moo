@@ -13,7 +13,7 @@ namespace FizzyMoo
         public bool DemoMode;      // autopilot drives the cow
         public bool RecordMode;    // dump a PNG sequence for the trailer
 
-        const float Half = 24f;    // half-size of the fenced meadow
+        const float Half = 16f;    // half-size of the fenced meadow
         System.Random _rng = new System.Random(20260908);
 
         void Awake()
@@ -27,9 +27,9 @@ namespace FizzyMoo
             BuildEnvironment();
             var cam = BuildCamera();
             var cow = BuildCow();
-            var stand = SodaStand.Build(transform, new Vector3(0f, 0f, 11.5f));
+            var stand = SodaStand.Build(transform, new Vector3(0f, 0f, 8.5f));
             stand.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            ScatterBerries(22);
+            ScatterBerries(20);
 
             var hud = HUD.Build(transform);
 
@@ -92,8 +92,9 @@ namespace FizzyMoo
 
             // --- ground --------------------------------------------------------
             var grass = Mk.Mat(Palette.Grass, 0.06f);
+            // Mesh extends far past the fence so the player never sees the edge of the world.
             var ground = Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, -0.5f, 0f),
-                                 new Vector3(Half * 2f + 6f, 1f, Half * 2f + 6f), grass, "Ground", collider: true);
+                                 new Vector3(260f, 1f, 260f), grass, "Ground", collider: true);
             ground.isStatic = true;
 
             // Mown patches: flat discs of slightly different green break up the plane.
@@ -133,12 +134,12 @@ namespace FizzyMoo
             // --- scenery ------------------------------------------------------------
             for (int i = 0; i < 16; i++)
             {
-                var p = Mk.OnRing(Half + 5f, Half + 26f, _rng);
+                var p = Mk.OnRing(Half + 4f, Half + 30f, _rng);
                 MakeTree(new Vector3(p.x, 0f, p.z), Mathf.Lerp(0.8f, 1.6f, (float)_rng.NextDouble()));
             }
             for (int i = 0; i < 9; i++)
             {
-                var p = Mk.OnRing(6f, Half - 3f, _rng);
+                var p = Mk.OnRing(5f, Half - 2f, _rng);
                 float s = Mathf.Lerp(0.35f, 0.9f, (float)_rng.NextDouble());
                 var rock = Mk.Prim(PrimitiveType.Sphere, transform, new Vector3(p.x, s * 0.28f, p.z),
                                    new Vector3(s, s * 0.62f, s * 0.85f), Mk.Mat(new Color(0.56f, 0.56f, 0.58f), 0.1f), "Rock");
@@ -209,9 +210,9 @@ namespace FizzyMoo
 
         CowController BuildCow()
         {
-            var go = Mk.Empty("Bessie", transform, new Vector3(0f, 1.2f, -4f));
+            var go = Mk.Empty("Bessie", transform, new Vector3(0f, 1.4f, -4f));
             var col = go.AddComponent<CapsuleCollider>();
-            col.radius = 0.62f; col.height = 1.85f; col.center = new Vector3(0f, 0.88f, 0f);
+            col.radius = 0.80f; col.height = 2.40f; col.center = new Vector3(0f, 1.14f, 0f);
             var mat = new PhysicsMaterial("CowPhys") { dynamicFriction = 0.3f, staticFriction = 0.3f, bounciness = 0.15f };
             col.material = mat;
             go.AddComponent<Rigidbody>();
@@ -223,7 +224,7 @@ namespace FizzyMoo
             var root = Mk.Empty("Berries", transform);
             for (int i = 0; i < n; i++)
             {
-                var p = Mk.OnRing(5f, Berry.FieldRadius, _rng);
+                var p = Mk.OnRing(4f, Berry.FieldRadius, _rng);
                 Berry.Spawn(root.transform, (Flavor)(i % 3), new Vector3(p.x, 0f, p.z));
             }
         }

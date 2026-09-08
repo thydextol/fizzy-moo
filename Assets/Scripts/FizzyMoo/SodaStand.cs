@@ -103,7 +103,8 @@ namespace FizzyMoo
             m.gravityModifier = 1.0f;
             var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 0.2f;
             var em = ps.emission; em.rateOverTime = 0f;
-            ps.GetComponent<ParticleSystemRenderer>().material = Mk.Mat(Color.white, 0.8f, 0f, Color.white * 0.8f);
+            ps.GetComponent<ParticleSystemRenderer>().material = Mk.ParticleMat(Color.white);
+            Mk.FadeOut(ps);
             ps.Stop();
             return ps;
         }

@@ -34,14 +34,16 @@ namespace FizzyMoo
             float p = Cow != null ? Cow.PressureNorm : 0f;
             bool airborne = Cow != null && Cow.State == CowState.Launched;
 
-            // Pull back and up when she is flying so the arc stays in frame.
-            float dist = airborne ? 13.5f : Mathf.Lerp(9.0f, 10.4f, p);
-            float height = airborne ? 8.0f : Mathf.Lerp(5.2f, 6.0f, p);
+            // A three-quarter offset rather than dead-behind: it shows the cow's
+            // spots and the swelling udder instead of just her rear end.
+            float dist = airborne ? 11.0f : Mathf.Lerp(6.6f, 7.4f, p);
+            float height = airborne ? 7.0f : Mathf.Lerp(3.4f, 3.9f, p);
+            float side = airborne ? 3.6f : 2.7f;
 
-            var desired = Target.position + new Vector3(0f, height, -dist);
+            var desired = Target.position + new Vector3(side, height, -dist);
             transform.position = Vector3.SmoothDamp(transform.position, desired, ref _vel, airborne ? 0.22f : 0.30f);
 
-            var look = Target.position + Vector3.up * (airborne ? 0.5f : 1.1f);
+            var look = Target.position + Vector3.up * (airborne ? 0.6f : 1.35f);
             var rot = Quaternion.LookRotation(look - transform.position);
 
             // Trauma decays quadratically -> punchy hit, quick settle.

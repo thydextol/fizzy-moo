@@ -84,9 +84,9 @@ namespace FizzyMoo
                     if (_target == null || !_target.Available || _target.Flavor != cust.Want)
                         _target = PickBerry(me, cust.Want);
                     if (_target != null)
-                        move = Steer(me, _target.transform.position);
+                        move = Steer(me, _target.transform.position, cust.Want);
                     else
-                        move = Steer(me, standPos + new Vector3(0f, 0f, -6f));
+                        move = Steer(me, standPos + new Vector3(0f, 0f, -6f), cust.Want);
                     if (p >= goal) _mode = Mode.Approach;
                     break;
                 }
@@ -122,12 +122,29 @@ namespace FizzyMoo
 
         float _lastPatience = -1f;
 
-        Vector2 Steer(Vector3 from, Vector3 to)
+        /// <summary>
+        /// Steer toward a point while pushing away from berries we must not eat.
+        /// The cow eats anything she touches, so the route matters as much as the
+        /// destination - a straight line to the right berry often runs you through
+        /// three wrong ones and blows the whole bottle.
+        /// </summary>
+        Vector2 Steer(Vector3 from, Vector3 to, Flavor? edible = null)
         {
             var d = to - from; d.y = 0f;
-            if (d.sqrMagnitude < 0.16f) return Vector2.zero;
-            d.Normalize();
-            return new Vector2(d.x, d.z);
+            Vector2 dir = d.sqrMagnitude < 0.16f ? Vector2.zero : new Vector2(d.x, d.z).normalized;
+
+            Vector2 avoid = Vector2.zero;
+            const float R = 3.0f;
+            foreach (var b in _berries)
+            {
+                if (b == null || !b.Available) continue;
+                if (edible.HasValue && b.Flavor == edible.Value) continue;   // safe to hit
+                var o = b.transform.position - from; o.y = 0f;
+                float dist = o.magnitude;
+                if (dist > R || dist < 0.01f) continue;
+                avoid -= new Vector2(o.x, o.z).normalized * ((1f - dist / R) * 1.7f);
+            }
+            return Vector2.ClampMagnitude(dir + avoid, 1f);
         }
 
         Berry PickBerry(Vector3 me, Flavor want)

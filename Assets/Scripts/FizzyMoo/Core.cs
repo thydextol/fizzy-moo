@@ -95,6 +95,53 @@ namespace FizzyMoo
         }
 
         /// <summary>Deterministic-ish jitter used for scattering props.</summary>
+
+        static Texture2D _dot;
+        /// <summary>Soft round sprite for particles - without it, billboards render as hard squares.</summary>
+        public static Texture2D Dot
+        {
+            get
+            {
+                if (_dot != null) return _dot;
+                const int N = 64;
+                _dot = new Texture2D(N, N, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+                var px = new Color32[N * N];
+                float c = (N - 1) * 0.5f;
+                for (int y = 0; y < N; y++)
+                for (int x = 0; x < N; x++)
+                {
+                    float d = Mathf.Sqrt((x - c) * (x - c) + (y - c) * (y - c)) / c;
+                    // smooth falloff with a brighter core so bubbles read as glossy
+                    float a = Mathf.Clamp01(1f - d);
+                    a = a * a * (3f - 2f * a);
+                    px[y * N + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                }
+                _dot.SetPixels32(px); _dot.Apply();
+                return _dot;
+            }
+        }
+
+        /// <summary>Unlit alpha-blended particle material using the generated dot.</summary>
+        public static Material ParticleMat(Color tint)
+        {
+            var m = new Material(Shader.Find("Sprites/Default"));
+            m.mainTexture = Dot;
+            m.color = tint;
+            return m;
+        }
+
+        /// <summary>Alpha ramp so particles dissolve instead of vanishing.</summary>
+        public static void FadeOut(ParticleSystem ps)
+        {
+            var col = ps.colorOverLifetime;
+            col.enabled = true;
+            var g = new Gradient();
+            g.SetKeys(
+                new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.95f, 0.5f), new GradientAlphaKey(0f, 1f) });
+            col.color = new ParticleSystem.MinMaxGradient(g);
+        }
+
         public static Vector3 OnRing(float minR, float maxR, System.Random rng)
         {
             double a = rng.NextDouble() * System.Math.PI * 2.0;

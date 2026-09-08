@@ -153,9 +153,9 @@ namespace FizzyMoo
 
         RectTransform BuildPanel(Transform root, out Text title, out Text sub, string t, string s)
         {
-            var p = UIKit.Rect("Panel", root, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
-            var bg = UIKit.Img("Dim", p, new Color(0.04f, 0.05f, 0.09f, 0.72f));
-            Stretch(bg.rectTransform, 0f);
+            var bg = UIKit.Img("Panel", root, new Color(0.04f, 0.05f, 0.09f, 0.78f));
+            var p = bg.rectTransform;
+            Stretch(p, 0f);
             var tb = UIKit.Rect("T", p, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                 new Vector2(0f, 120f), new Vector2(1500f, 200f));
             title = UIKit.LabelShadowed("Title", tb, t, 150, Palette.Cream);

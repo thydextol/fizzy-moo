@@ -20,7 +20,8 @@ namespace FizzyMoo
         string _dir;
         int _frame;
         Texture2D _tex;
-        bool _done;
+        bool _done, _locked;
+        float _settleT;
 
         void Start()
         {
@@ -48,11 +49,24 @@ namespace FizzyMoo
             while (_frame < total)
             {
                 yield return new WaitForEndOfFrame();
-                if (Screen.width != Width || Screen.height != Height)
+
+                // The window may never land on exactly the requested size (display
+                // limits, Retina scaling). Give it a moment, then just record at
+                // whatever the backbuffer actually is rather than spinning forever.
+                if (!_locked)
                 {
-                    // Resolution has not settled yet; skip until it has.
-                    yield return null;
-                    continue;
+                    _settleT += Time.unscaledDeltaTime;
+                    bool matches = Screen.width == Width && Screen.height == Height;
+                    if (!matches && _settleT < 2f) { yield return null; continue; }
+                    if (!matches)
+                    {
+                        Width = Screen.width; Height = Screen.height;
+                        Destroy(_tex);
+                        _tex = new Texture2D(Width, Height, TextureFormat.RGB24, false);
+                        Debug.LogWarning($"[FrameRecorder] falling back to {Width}x{Height}");
+                    }
+                    _locked = true;
+                    Debug.Log($"[FrameRecorder] locked at {Width}x{Height}");
                 }
                 _tex.ReadPixels(new Rect(0, 0, Width, Height), 0, 0, false);
                 _tex.Apply(false);

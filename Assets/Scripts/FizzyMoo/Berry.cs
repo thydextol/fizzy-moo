@@ -18,7 +18,7 @@ namespace FizzyMoo
         float _phase, _respawnT;
         static System.Random _rng = new System.Random(1234);
 
-        public const float FieldRadius = 21f;
+        public const float FieldRadius = 13.5f;
 
         public static Berry Spawn(Transform parent, Flavor f, Vector3 pos)
         {
@@ -36,16 +36,16 @@ namespace FizzyMoo
 
             _visual = Mk.Empty("Visual", transform, new Vector3(0f, 0.55f, 0f)).transform;
             // A cluster of three spheres reads better than one ball at distance.
-            Mk.Prim(PrimitiveType.Sphere, _visual, new Vector3( 0.00f,  0.10f, 0f), Vector3.one * 0.34f, _mat);
-            Mk.Prim(PrimitiveType.Sphere, _visual, new Vector3( 0.16f, -0.08f, 0.05f), Vector3.one * 0.26f, _mat);
-            Mk.Prim(PrimitiveType.Sphere, _visual, new Vector3(-0.15f, -0.09f, -0.04f), Vector3.one * 0.24f, _mat);
+            Mk.Prim(PrimitiveType.Sphere, _visual, new Vector3( 0.00f,  0.10f, 0f), Vector3.one * 0.48f, _mat);
+            Mk.Prim(PrimitiveType.Sphere, _visual, new Vector3( 0.22f, -0.10f, 0.07f), Vector3.one * 0.36f, _mat);
+            Mk.Prim(PrimitiveType.Sphere, _visual, new Vector3(-0.21f, -0.11f, -0.06f), Vector3.one * 0.34f, _mat);
             // little stem
             Mk.Prim(PrimitiveType.Cylinder, _visual, new Vector3(0f, 0.28f, 0f), new Vector3(0.035f, 0.10f, 0.035f),
                     Mk.Mat(new Color(0.30f, 0.45f, 0.20f)));
 
             var trig = gameObject.AddComponent<SphereCollider>();
             trig.isTrigger = true;
-            trig.radius = 0.95f;
+            trig.radius = 1.15f;
             trig.center = new Vector3(0f, 0.5f, 0f);
 
             _sparkle = Mk.Empty("Sparkle", transform, new Vector3(0f, 0.55f, 0f)).AddComponent<ParticleSystem>();
@@ -57,7 +57,8 @@ namespace FizzyMoo
             m.simulationSpace = ParticleSystemSimulationSpace.World;
             var em = _sparkle.emission; em.rateOverTime = 7f;
             var sh = _sparkle.shape; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 0.22f;
-            _sparkle.GetComponent<ParticleSystemRenderer>().material = Mk.Mat(Color.white, 1f, 0f, c * 2f);
+            _sparkle.GetComponent<ParticleSystemRenderer>().material = Mk.ParticleMat(Color.white);
+            Mk.FadeOut(_sparkle);
 
             _phase = (float)_rng.NextDouble() * 6.28f;
         }
@@ -96,7 +97,7 @@ namespace FizzyMoo
         void Respawn()
         {
             // Re-roll position and flavour so the field composition keeps shifting.
-            var p = Mk.OnRing(4.5f, FieldRadius, _rng);
+            var p = Mk.OnRing(4f, FieldRadius, _rng);
             transform.position = new Vector3(p.x, 0f, p.z);
             Flavor = (Flavor)_rng.Next(0, 3);
             var c = Palette.Of(Flavor);

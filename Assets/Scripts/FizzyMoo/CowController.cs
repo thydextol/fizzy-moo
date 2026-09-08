@@ -110,8 +110,9 @@ namespace FizzyMoo
             main.maxParticles = 700;
             main.simulationSpace = ParticleSystemSimulationSpace.World;
             var r = ps.GetComponent<ParticleSystemRenderer>();
-            r.material = Mk.Mat(Color.white, 0.7f, 0f, Color.white * 0.6f);
+            r.material = Mk.ParticleMat(Color.white);
             r.renderMode = ParticleSystemRenderMode.Billboard;
+            Mk.FadeOut(ps);
             ps.Stop();
             return ps;
         }

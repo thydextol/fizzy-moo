@@ -24,6 +24,8 @@ namespace FizzyMoo
         public static CowRig Build(Transform parent)
         {
             var root = Mk.Empty("CowRig", parent);
+            // Bessie reads better on camera at a bit above life size.
+            root.transform.localScale = Vector3.one * 1.3f;
             var rig = root.AddComponent<CowRig>();
             rig.Construct();
             return rig;
@@ -48,6 +50,8 @@ namespace FizzyMoo
                 (new Vector3(-0.28f,  0.10f, -0.20f), 0.40f),
                 (new Vector3( 0.10f, -0.18f, -0.45f), 0.28f),
                 (new Vector3(-0.20f,  0.22f,  0.46f), 0.24f),
+                (new Vector3( 0.02f,  0.38f, -0.05f), 0.46f),
+                (new Vector3(-0.06f,  0.34f,  0.30f), 0.26f),
             };
             foreach (var (p, s) in spots)
             {

@@ -29,8 +29,44 @@ namespace FizzyMoo.EditorTools
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
             ApplyPlayerSettings();
+            EnsureAlwaysIncludedShaders();
             AssetDatabase.SaveAssets();
             Debug.Log("[FizzyMoo] Scene generated at " + ScenePath);
+        }
+
+
+        /// <summary>
+        /// Every material in this game is created at runtime via Shader.Find, so no
+        /// scene asset references the shaders and the player build strips them - which
+        /// shows up as "Value cannot be null. Parameter name: shader" on launch.
+        /// Registering them as Always Included Shaders keeps them in the build.
+        /// </summary>
+        static void EnsureAlwaysIncludedShaders()
+        {
+            string[] names = { "Standard", "UI/Default", "Sprites/Default" };
+            var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
+            if (assets == null || assets.Length == 0) { Debug.LogWarning("[FizzyMoo] GraphicsSettings not found"); return; }
+
+            var so = new SerializedObject(assets[0]);
+            var arr = so.FindProperty("m_AlwaysIncludedShaders");
+            var have = new System.Collections.Generic.HashSet<string>();
+            for (int i = 0; i < arr.arraySize; i++)
+            {
+                var sh = arr.GetArrayElementAtIndex(i).objectReferenceValue as Shader;
+                if (sh != null) have.Add(sh.name);
+            }
+            foreach (var n in names)
+            {
+                if (have.Contains(n)) { Debug.Log("[FizzyMoo] shader already included: " + n); continue; }
+                var sh = Shader.Find(n);
+                if (sh == null) { Debug.LogWarning("[FizzyMoo] shader not found: " + n); continue; }
+                int idx = arr.arraySize;
+                arr.InsertArrayElementAtIndex(idx);
+                arr.GetArrayElementAtIndex(idx).objectReferenceValue = sh;
+                Debug.Log("[FizzyMoo] always-include shader: " + n);
+            }
+            so.ApplyModifiedProperties();
+            AssetDatabase.SaveAssets();
         }
 
         static void ApplyPlayerSettings()

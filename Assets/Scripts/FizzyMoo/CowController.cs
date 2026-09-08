@@ -153,6 +153,7 @@ namespace FizzyMoo
                     _rb.angularVelocity = Vector3.Lerp(_rb.angularVelocity, Vector3.zero, 1f - Mathf.Exp(-6f * dt));
                 }
                 if (_stunT <= 0f) Recover();
+                Sfx.I?.SetFizz(0f);
                 _rig.Tick(0f, dt);
                 return;
             }
@@ -280,8 +281,14 @@ namespace FizzyMoo
         }
 
         /// <summary>Called by the stand once a bottle is served - the udder empties out.</summary>
-        public void ClearFlavor()
+        /// <param name="poured">pressure units that just left the tank</param>
+        public void ClearFlavor(float poured)
         {
+            // The fermentation belongs to the fruit that was just poured out; keep only
+            // the share of the tank that remains, otherwise it accumulates all round
+            // and the cow refills herself with flavourless cream.
+            float remain = Pressure / Mathf.Max(0.01f, Pressure + poured);
+            _ferment *= Mathf.Clamp01(remain);
             FlavorMix = Vector3.zero;
             FruitEaten = 0;
         }
@@ -294,6 +301,9 @@ namespace FizzyMoo
             Pressure = 0f;
             _ferment = 0f;
             FlavorMix = Vector3.zero;
+
+            _rig.PressureNorm = 0f; _rig.FlavorMix = Vector3.zero;
+            Sfx.I?.SetFizz(0f);
 
             _rb.constraints = RigidbodyConstraints.None;
             _rb.AddForce(new Vector3(Random.Range(-3f, 3f), 17f, Random.Range(-3f, 3f)), ForceMode.VelocityChange);

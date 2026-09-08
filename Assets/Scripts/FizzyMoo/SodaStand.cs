@@ -29,6 +29,7 @@ namespace FizzyMoo
         CowController _cow;
         int _difficulty;
         float _phase, _lockout;
+        bool _armed;      // Space released at least once since the last serve / new order
 
         /// <summary>(points, quality 0..1, perfect) - GameManager listens for this.</summary>
         public System.Action<int, float, bool> OnServed;
@@ -49,7 +50,7 @@ namespace FizzyMoo
             var metal = Mk.Mat(Palette.Metal, 0.85f, 0.9f);
 
             // counter
-            Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 0.55f, 0f), new Vector3(3.4f, 1.1f, 1.3f), wood, "Counter");
+            Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 0.55f, 0f), new Vector3(3.4f, 1.1f, 1.3f), wood, "Counter", collider: true);
             Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, 1.16f, 0f), new Vector3(3.7f, 0.12f, 1.55f), wood2, "CounterTop");
             // posts + awning
             foreach (float sx in new[] { -1f, 1f })
@@ -147,6 +148,7 @@ namespace FizzyMoo
             Charge = 0f;
             Live.SetFill(0f);
             Live.ClearBands();
+            _armed = false;
             Customer.NewOrder(difficulty);
             Live.AddTargetBand(Customer.WantFill, Color.white);
             Live.SetColor(Palette.Of(Customer.Want));
@@ -158,6 +160,7 @@ namespace FizzyMoo
             _phase += Time.deltaTime;
             if (_lockout > 0f) _lockout -= Time.deltaTime;
             if (_cow == null) return;
+            if (_cow.LastVentAmount <= 0f) _armed = true;
 
             // Measure from the ring on the grass, not the counter - the ring IS the zone.
             var flat = _cow.transform.position - _zoneDisc.position;
@@ -166,7 +169,7 @@ namespace FizzyMoo
             // Venting to empty outside the ring dumps the flavour as well, so the hint
             // "hold Space out here to vent it" is actually true.
             if (!CowInZone && _cow.CanAct && _cow.State == CowState.Venting && _cow.Pressure <= 1.5f && _cow.FruitEaten > 0)
-                _cow.ClearFlavor();
+                _cow.ClearFlavor(1000f);
 
             // Zone marker glows when you are standing in it and ready to pour.
             var zc = CowInZone ? Palette.Gold : Palette.Cream;
@@ -175,7 +178,7 @@ namespace FizzyMoo
 
             bool active = Customer != null && Customer.Active && _lockout <= 0f;
 
-            if (active && CowInZone && _cow.LastVentAmount > 0f && _cow.CanAct)
+            if (active && _armed && CowInZone && _cow.LastVentAmount > 0f && _cow.CanAct)
             {
                 Pouring = true;
                 Charge += _cow.LastVentAmount;
@@ -230,7 +233,9 @@ namespace FizzyMoo
             // Flavour: a clean single-flavour pour scores far better than a muddled one.
             float flavorScore = flavorRight ? Mathf.InverseLerp(0.34f, 1f, purity) * 0.85f + 0.15f : 0.10f;
 
-            float quality = Mathf.Clamp01(fillScore * 0.62f + flavorScore * 0.38f);
+            // Flavour GATES fill rather than adding to it: a perfectly filled glass of the
+            // wrong flavour scores 37 and breaks the streak instead of scoring 66.
+            float quality = Mathf.Clamp01(fillScore * Mathf.Lerp(0.30f, 1f, flavorScore));
             bool perfect = !overflow && fillErr < 0.045f && flavorRight && purity > 0.80f;
             int points = Mathf.RoundToInt(quality * 100f) + (perfect ? 60 : 0);
 
@@ -256,7 +261,7 @@ namespace FizzyMoo
             }
 
             Customer.React(quality > 0.5f, quality);
-            _cow.ClearFlavor();
+            _cow.ClearFlavor(Charge);
             _lockout = 1.0f;
             OnServed?.Invoke(points, quality, perfect);
         }

@@ -67,7 +67,8 @@ namespace FizzyMoo
 
                 // Safety: never sit on a hair trigger far from the stand.
                 if (p > 86f && _mode == Mode.Gather && !_showboat) _mode = Mode.Approach;
-                if (_mode == Mode.Gather && p >= need) _mode = Mode.Approach;
+                if (_cow.State == CowState.Launched) _showboat = false;
+                if (_mode == Mode.Gather && p >= need && !_showboat) _mode = Mode.Approach;
                 // Lost the charge on the way (blowout, bleed)? Go back for more before walking up.
                 if (_mode == Mode.Approach && p < need - 4f && standDist > 2.5f && !_showboat) _mode = Mode.Gather;
                 if (_mode == Mode.Approach && standDist < SodaStand.ServeRadius - 0.4f) _mode = Mode.Pour;
@@ -149,7 +150,9 @@ namespace FizzyMoo
                 if (Vector2.Dot(new Vector2(o.x, o.z) / dist, dir) < 0f) continue;   // behind us - irrelevant
                 avoid -= new Vector2(o.x, o.z).normalized * ((1f - dist / R) * 1.7f);
             }
-            return Vector2.ClampMagnitude(dir + avoid, 1f);
+            var res = dir + avoid;
+            if (res.magnitude < 0.3f) return dir;      // pinned between fruit: just go
+            return Vector2.ClampMagnitude(res, 1f);
         }
 
         Fruit PickFruit(Vector3 me, Flavor want)

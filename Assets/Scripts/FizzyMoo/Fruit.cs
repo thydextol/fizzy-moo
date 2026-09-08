@@ -21,6 +21,21 @@ namespace FizzyMoo
         public const float FieldRadius = 13.5f;
         /// <summary>Set by the GameManager; fruit of this flavour pulse so the player knows what to eat.</summary>
         public static Flavor? Wanted;
+        public static Vector3 KeepOut = new Vector3(0f, 0f, 8.5f);   // the stand
+        public static Transform Avoid;                                // the cow
+
+        /// <summary>A meadow spot clear of the stand's pour zone and of the cow.</summary>
+        public static Vector3 PickSpot(System.Random rng)
+        {
+            for (int i = 0; i < 16; i++)
+            {
+                var p = Mk.OnRing(4f, FieldRadius, rng);
+                if ((p - KeepOut).sqrMagnitude < 6.5f * 6.5f) continue;
+                if (Avoid != null) { var d = Avoid.position - p; d.y = 0f; if (d.sqrMagnitude < 2.5f * 2.5f) continue; }
+                return p;
+            }
+            return Mk.OnRing(4f, FieldRadius, rng);
+        }
 
         public static Fruit Spawn(Transform parent, Flavor f, Vector3 pos)
         {
@@ -141,7 +156,7 @@ namespace FizzyMoo
 
         void Respawn()
         {
-            var p = Mk.OnRing(4f, FieldRadius, _rng);
+            var p = PickSpot(_rng);
             transform.position = new Vector3(p.x, 0f, p.z);
             Flavor = (Flavor)_rng.Next(0, 3);
             BuildVisual();                       // silhouette must match the new flavour

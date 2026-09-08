@@ -387,6 +387,8 @@ namespace FizzyMoo
                 rt.localScale = Vector3.one * (0.7f + Ease.OutBack(Mathf.Clamp01(u * 3f)) * 0.45f);
                 var c = _pops[i].color; c.a = Mathf.Clamp01(_popT[i] * 1.6f);
                 _pops[i].color = c;
+                var link = _pops[i].GetComponent<ShadowLink>();
+                if (link != null && link.Shadow != null) link.Shadow.color = new Color(0f, 0f, 0f, 0.45f * c.a);
                 if (_popT[i] <= 0f) rt.gameObject.SetActive(false);
             }
         }

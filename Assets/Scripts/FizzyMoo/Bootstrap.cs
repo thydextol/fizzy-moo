@@ -27,6 +27,7 @@ namespace FizzyMoo
             BuildEnvironment();
             var cam = BuildCamera();
             var cow = BuildCow();
+            Fruit.Avoid = cow.transform;
             var stand = SodaStand.Build(transform, new Vector3(0f, 0f, 8.5f));
             stand.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             ScatterFruit(20);
@@ -224,7 +225,7 @@ namespace FizzyMoo
             var root = Mk.Empty("Berries", transform);
             for (int i = 0; i < n; i++)
             {
-                var p = Mk.OnRing(4f, Fruit.FieldRadius, _rng);
+                var p = Fruit.PickSpot(_rng);
                 Fruit.Spawn(root.transform, (Flavor)(i % 3), new Vector3(p.x, 0f, p.z));
             }
         }

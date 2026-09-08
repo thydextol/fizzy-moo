@@ -17,6 +17,8 @@ namespace FizzyMoo
         public float Patience = 26f;
         public float PatienceLeft;
         public bool Active;
+        public Transform LookAt;        // set by the stand: the cow
+        static int _sayIdx;
         const float Size = 1.22f;       // a bit over life-size so they read from across the meadow
 
         Transform _body, _head, _armL, _armR, _patienceRing, _hair, _hat, _card;
@@ -74,9 +76,13 @@ namespace FizzyMoo
 
             BuildCard();
 
-            _ringMat = Mk.Mat(Palette.Gold, 0.4f, 0f, Palette.Gold * 0.8f);
+            // Patience: a band on the grass in its own colour family (cream -> red), so it is
+            // not confused with the gold pour ring a metre away.
+            _ringMat = Mk.Mat(Palette.Cream, 0.4f, 0f, Palette.Cream * 0.4f);
             _patienceRing = Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.02f, 0f),
-                                    new Vector3(1.5f, 0.02f, 1.5f), _ringMat, "PatienceRing").transform;
+                                    new Vector3(1.7f, 0.02f, 1.7f), _ringMat, "PatienceRing").transform;
+            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.035f, 0f),
+                    new Vector3(1.25f, 0.02f, 1.25f), Mk.Mat(Palette.GrassDark, 0.05f), "PatienceInner");
         }
 
         /// <summary>Billboarded order card: flavour name + a mini glass with the target line.</summary>
@@ -88,7 +94,7 @@ namespace FizzyMoo
             go.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
             var rt = (RectTransform)go.transform;
             rt.sizeDelta = new Vector2(360f, 124f);
-            rt.localScale = Vector3.one * 0.0062f;
+            rt.localScale = Vector3.one * 0.0078f;
             _card = go.transform;
 
             _cardBg = UIKit.Img("Bg", rt, Palette.Cream);
@@ -100,10 +106,10 @@ namespace FizzyMoo
             edge.rectTransform.sizeDelta = new Vector2(0f, 8f);
 
             var nameBox = UIKit.Rect("NameBox", rt, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                                     new Vector2(18f, 16f), new Vector2(250f, 60f));
-            _cardName = UIKit.Label("Name", nameBox, "KEY LIME", 46, Palette.KeyLime, TextAnchor.MiddleLeft);
+                                     new Vector2(18f, 16f), new Vector2(268f, 56f));
+            _cardName = UIKit.Label("Name", nameBox, "KEY LIME", 34, Palette.KeyLime, TextAnchor.MiddleLeft);
             var pctBox = UIKit.Rect("PctBox", rt, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
-                                    new Vector2(18f, -30f), new Vector2(250f, 40f));
+                                    new Vector2(18f, -30f), new Vector2(268f, 40f));
             _cardPct = UIKit.Label("Pct", pctBox, "FILL TO 70%", 28, new Color(0.25f, 0.25f, 0.28f), TextAnchor.MiddleLeft);
             var reactBox = UIKit.Rect("ReactBox", rt, Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f), Vector2.zero, Vector2.zero);
             _cardReact = UIKit.Label("React", reactBox, "", 62, Palette.Gold);
@@ -142,6 +148,7 @@ namespace FizzyMoo
 
         public void NewOrder(int difficulty)
         {
+            StopAllCoroutines();
             Want = (Flavor)_rng.Next(0, 3);
             WantFill = Mathf.Lerp(0.30f, 0.92f, (float)_rng.NextDouble());
             Patience = Mathf.Max(13f, 27f - difficulty * 1.6f);
@@ -184,7 +191,13 @@ namespace FizzyMoo
             // The card becomes the reaction so it reads from across the field.
             _cardName.gameObject.SetActive(false); _cardPct.gameObject.SetActive(false);
             _cardReact.gameObject.SetActive(true);
-            _cardReact.text = !happy ? (quality > 0.2f ? "MEH." : "NOPE.") : (quality > 0.9f ? "MOO-VELLOUS!" : "YUM!");
+            // One line in the brand's voice - self-aware, never a pitch.
+            string[] great = { "WAIT. WHY IS THIS GOOD?", "MOO-VELLOUS!", "OKAY. I GET IT NOW." };
+            string[] good  = { "YUM.", "HUH. NOT BAD.", "FINE. IT'S GOOD." };
+            string[] meh   = { "MEH.", "...WARM.", "CLOSE." };
+            string[] nope  = { "NOPE.", "THAT'S NOT IT.", "WRONG MOO." };
+            var pool = !happy ? (quality > 0.2f ? meh : nope) : (quality > 0.9f ? great : good);
+            _cardReact.text = pool[(_sayIdx++) % pool.Length];
             _cardReact.color = happy ? (quality > 0.9f ? Palette.Gold : new Color(0.2f, 0.55f, 0.25f)) : Palette.Danger;
             _cardBg.color = happy ? Palette.Cream : new Color(1f, 0.86f, 0.82f);
             StartCoroutine(ReactRoutine(happy, quality));
@@ -234,16 +247,23 @@ namespace FizzyMoo
             PatienceLeft -= Time.deltaTime;
             float p = Mathf.Clamp01(PatienceLeft / Patience);
             _patienceRing.localScale = new Vector3(1.5f * p, 0.02f, 1.5f * p);
-            _ringMat.color = Color.Lerp(Palette.Danger, Palette.Gold, p);
+            _ringMat.color = Color.Lerp(Palette.Danger, Palette.Cream, p);
             _ringMat.SetColor("_EmissionColor", _ringMat.color * (p < 0.3f ? Ease.Pulse(_phase, 4f) * 1.4f : 0.6f));
             // the card blushes red as patience runs out
             _cardBg.color = p < 0.3f ? Color.Lerp(Palette.Cream, new Color(1f, 0.80f, 0.76f), Ease.Pulse(_phase, 3f)) : Palette.Cream;
 
             float fidget = Mathf.Lerp(1.2f, 5.0f, 1f - p);
             _body.localPosition = new Vector3(Mathf.Sin(_phase * fidget) * 0.03f, Mathf.Abs(Mathf.Sin(_phase * fidget * 1.6f)) * 0.03f, 0f);
-            _head.localRotation = Quaternion.Euler(0f, Mathf.Sin(_phase * fidget * 0.7f) * 14f, 0f);
+            // Watch the cow - it is the cheapest way to make a character feel present.
+            float yaw = 0f;
+            if (LookAt != null)
+            {
+                var d = LookAt.position - _head.position; d.y = 0f;
+                yaw = Mathf.Clamp(Vector3.SignedAngle(transform.forward, d, Vector3.up), -70f, 70f);
+            }
+            _head.localRotation = Quaternion.Euler(0f, yaw + Mathf.Sin(_phase * fidget * 0.7f) * 6f, 0f);
         }
 
-        public void Hide() { transform.localScale = Vector3.zero; Active = false; }
+        public void Hide() { StopAllCoroutines(); transform.localScale = Vector3.zero; Active = false; }
     }
 }

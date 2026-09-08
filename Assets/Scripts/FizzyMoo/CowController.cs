@@ -37,6 +37,7 @@ namespace FizzyMoo
         public bool CanAct => State != CowState.Launched;
 
         float _ferment, _stunT;
+        bool _righting;
         Rigidbody _rb;
         CowRig _rig;
         ParticleSystem _fizzJet, _burst, _warnPuff;
@@ -140,6 +141,13 @@ namespace FizzyMoo
                 // on her feet. Tumbling is funny; lying on her side reads as a bug.
                 if (_stunT < StunTime - 0.9f && transform.position.y < 2.4f)
                 {
+                    if (!_righting)
+                    {
+                        // Physics would otherwise keep tipping her back over mid-slerp.
+                        _righting = true;
+                        _rb.constraints = RigidbodyConstraints.FreezeRotation;
+                        _rb.angularVelocity = Vector3.zero;
+                    }
                     var upright = Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
                     transform.rotation = Quaternion.Slerp(transform.rotation, upright, 1f - Mathf.Exp(-7f * dt));
                     _rb.angularVelocity = Vector3.Lerp(_rb.angularVelocity, Vector3.zero, 1f - Mathf.Exp(-6f * dt));
@@ -259,6 +267,9 @@ namespace FizzyMoo
             OnAte?.Invoke(f);
         }
 
+        /// <summary>Empty the tank without moving her - used when the round ends.</summary>
+        public void Calm() { Pressure = 0f; _ferment = 0f; FlavorMix = Vector3.zero; FruitEaten = 0; }
+
         /// <summary>Demo-day hotkey: jump to a dangerous charge so the room can watch the udder, then the blowout.</summary>
         public void Bloat(float p)
         {
@@ -279,6 +290,7 @@ namespace FizzyMoo
         {
             State = CowState.Launched;
             _stunT = StunTime;
+            _righting = false;
             Pressure = 0f;
             _ferment = 0f;
             FlavorMix = Vector3.zero;

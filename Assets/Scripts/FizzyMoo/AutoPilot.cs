@@ -68,6 +68,8 @@ namespace FizzyMoo
                 // Safety: never sit on a hair trigger far from the stand.
                 if (p > 86f && _mode == Mode.Gather && !_showboat) _mode = Mode.Approach;
                 if (_mode == Mode.Gather && p >= need) _mode = Mode.Approach;
+                // Lost the charge on the way (blowout, bleed)? Go back for more before walking up.
+                if (_mode == Mode.Approach && p < need - 4f && standDist > 2.5f && !_showboat) _mode = Mode.Gather;
                 if (_mode == Mode.Approach && standDist < SodaStand.ServeRadius - 0.4f) _mode = Mode.Pour;
             }
 

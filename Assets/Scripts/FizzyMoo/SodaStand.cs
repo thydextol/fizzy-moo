@@ -139,7 +139,7 @@ namespace FizzyMoo
             return ps;
         }
 
-        public void Bind(CowController cow) { _cow = cow; cow.PourTarget = _glassTop; }
+        public void Bind(CowController cow) { _cow = cow; cow.PourTarget = _glassTop; Customer.LookAt = cow.transform; }
 
         public void NextCustomer(int difficulty)
         {
@@ -159,9 +159,10 @@ namespace FizzyMoo
             if (_lockout > 0f) _lockout -= Time.deltaTime;
             if (_cow == null) return;
 
-            var flat = _cow.transform.position - transform.position;
+            // Measure from the ring on the grass, not the counter - the ring IS the zone.
+            var flat = _cow.transform.position - _zoneDisc.position;
             flat.y = 0f;
-            CowInZone = flat.magnitude <= ServeRadius + 1.2f;
+            CowInZone = flat.magnitude <= ServeRadius + 0.9f;
 
             // Zone marker glows when you are standing in it and ready to pour.
             var zc = CowInZone ? Palette.Gold : Palette.Cream;

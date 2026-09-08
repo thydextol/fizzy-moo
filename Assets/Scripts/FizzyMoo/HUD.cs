@@ -13,7 +13,9 @@ namespace FizzyMoo
         Canvas _canvas;
         Image _gaugeFill, _gaugeGlow, _vignette, _flash;
         Text _psi, _score, _combo, _timer, _served, _order, _hint, _bigTitle, _bigSub;
-        RectTransform _gaugeRoot, _panelTitle, _panelOver;
+        RectTransform _gaugeRoot, _panelTitle, _panelOver, _mixRoot, _glassRoot;
+        Image _orderPill, _glassFillImg, _glassLineImg;
+        Text _glassPct;
         Image[] _mixBars = new Image[3];
         Text[] _pops = new Text[6];
         float[] _popT = new float[6];
@@ -69,6 +71,11 @@ namespace FizzyMoo
             _served = UIKit.LabelShadowed("Served", vBox, "0 SERVED", 40, Palette.Cream, TextAnchor.MiddleRight);
             var oBox = UIKit.Rect("OrderBox", root, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
                                   new Vector2(-48f, -108f), new Vector2(760f, 56f));
+            _orderPill = UIKit.Img("OrderPill", oBox, new Color(0f, 0f, 0f, 0.45f));
+            _orderPill.rectTransform.anchorMin = _orderPill.rectTransform.anchorMax = new Vector2(1f, 0.5f);
+            _orderPill.rectTransform.pivot = new Vector2(1f, 0.5f);
+            _orderPill.rectTransform.anchoredPosition = new Vector2(14f, 0f);
+            _orderPill.rectTransform.sizeDelta = new Vector2(0f, 60f);
             _order = UIKit.LabelShadowed("Order", oBox, "", 42, Palette.Cream, TextAnchor.MiddleRight);
 
             // --- pressure gauge (left, mid) --------------------------------------
@@ -106,33 +113,57 @@ namespace FizzyMoo
 
             // --- flavour mix bars (under the gauge) ---------------------------------
             var mixRoot = UIKit.Rect("Mix", root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 1f),
-                                     new Vector2(200f, -200f), new Vector2(230f, 100f));
+                                     new Vector2(200f, -200f), new Vector2(260f, 110f));
+            _mixRoot = mixRoot;
             string[] nm = { "LIME", "ORANGE", "PINA" };
             for (int i = 0; i < 3; i++)
             {
-                float x = (i - 1) * 74f;
-                var back = UIKit.Img("MixBack" + i, mixRoot, new Color(0f, 0f, 0f, 0.32f));
+                float x = (i - 1) * 84f;
+                var fc = Palette.Of((Flavor)i);
+                var back = UIKit.Img("MixBack" + i, mixRoot, new Color(fc.r * 0.30f, fc.g * 0.30f, fc.b * 0.30f, 0.78f));
                 back.rectTransform.anchorMin = back.rectTransform.anchorMax = new Vector2(0.5f, 1f);
                 back.rectTransform.pivot = new Vector2(0.5f, 0f);
                 back.rectTransform.anchoredPosition = new Vector2(x, -74f);
-                back.rectTransform.sizeDelta = new Vector2(52f, 66f);
+                back.rectTransform.sizeDelta = new Vector2(60f, 80f);
 
                 var fill = UIKit.Img("MixFill" + i, mixRoot, Palette.Of((Flavor)i));
                 fill.rectTransform.anchorMin = fill.rectTransform.anchorMax = new Vector2(0.5f, 1f);
                 fill.rectTransform.pivot = new Vector2(0.5f, 0f);
                 fill.rectTransform.anchoredPosition = new Vector2(x, -74f);
-                fill.rectTransform.sizeDelta = new Vector2(52f, 0f);
+                fill.rectTransform.sizeDelta = new Vector2(60f, 0f);
                 _mixBars[i] = fill;
 
                 var lab = UIKit.Rect("MixLbl" + i, mixRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
-                                     new Vector2(x, -146f), new Vector2(90f, 30f));
-                UIKit.LabelShadowed("L" + i, lab, nm[i], 20, new Color(1f, 1f, 1f, 0.85f));
+                                     new Vector2(x, -162f), new Vector2(96f, 32f));
+                UIKit.LabelShadowed("L" + i, lab, nm[i], 24, fc);
             }
 
             // --- hint (bottom-centre) -------------------------------------------------
             var hBox = UIKit.Rect("HintBox", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
                                   new Vector2(0f, 74f), new Vector2(1200f, 64f));
             _hint = UIKit.LabelShadowed("Hint", hBox, "", 40, Palette.Cream);
+
+            // --- glass meter: shown while in the pour zone, because the real glass and its
+            //     target line are tiny from the chase camera --------------------------------
+            _glassRoot = UIKit.Rect("GlassMeter", root, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f),
+                                    new Vector2(-64f, -30f), new Vector2(96f, 380f));
+            var gback = UIKit.Img("Back", _glassRoot, new Color(0f, 0f, 0f, 0.40f)); Stretch(gback.rectTransform, 0f);
+            var ginner = UIKit.Img("Inner", _glassRoot, new Color(1f, 1f, 1f, 0.10f)); Stretch(ginner.rectTransform, -8f);
+            _glassFillImg = UIKit.Img("Fill", _glassRoot, Palette.Cream);
+            _glassFillImg.rectTransform.anchorMin = new Vector2(0f, 0f); _glassFillImg.rectTransform.anchorMax = new Vector2(1f, 0f);
+            _glassFillImg.rectTransform.pivot = new Vector2(0.5f, 0f);
+            _glassFillImg.rectTransform.anchoredPosition = new Vector2(0f, 8f); _glassFillImg.rectTransform.sizeDelta = new Vector2(-16f, 0f);
+            _glassLineImg = UIKit.Img("Line", _glassRoot, Palette.Gold);
+            _glassLineImg.rectTransform.anchorMin = new Vector2(0f, 0f); _glassLineImg.rectTransform.anchorMax = new Vector2(1f, 0f);
+            _glassLineImg.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            _glassLineImg.rectTransform.anchoredPosition = new Vector2(0f, 8f); _glassLineImg.rectTransform.sizeDelta = new Vector2(30f, 9f);
+            var gpBox = UIKit.Rect("PctBox", _glassRoot, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(1f, 0.5f),
+                                   new Vector2(-24f, 8f), new Vector2(130f, 44f));
+            _glassPct = UIKit.LabelShadowed("Pct", gpBox, "", 36, Palette.Gold, TextAnchor.MiddleRight);
+            var gtBox = UIKit.Rect("TitleBox", _glassRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
+                                   new Vector2(0f, 8f), new Vector2(200f, 34f));
+            UIKit.LabelShadowed("GlassTitle", gtBox, "RELEASE AT THE LINE", 22, Palette.Cream);
+            _glassRoot.gameObject.SetActive(false);
 
             // --- floating score popups -------------------------------------------------
             for (int i = 0; i < _pops.Length; i++)
@@ -217,11 +248,36 @@ namespace FizzyMoo
         {
             _panelOver.gameObject.SetActive(on);
             if (on) { _overTitle.text = title; _overSub.text = sub; }
+            // the gauges have nothing to say on the results card
+            if (_gaugeRoot != null) _gaugeRoot.gameObject.SetActive(!on);
+            if (_mixRoot != null) _mixRoot.gameObject.SetActive(!on);
+            if (on && _glassRoot != null) _glassRoot.gameObject.SetActive(false);
         }
 
         public void SetHint(string s) { if (_hint.text != s) _hint.text = s; }
 
-        public void SetOrder(string s, Color c) { if (_order.text != s) _order.text = s; _order.color = c; }
+        public void SetOrder(string s, Color c)
+        {
+            if (_order.text != s) _order.text = s;
+            _order.color = c;
+            bool any = s.Length > 0;
+            if (_orderPill.gameObject.activeSelf != any) _orderPill.gameObject.SetActive(any);
+            if (any) _orderPill.rectTransform.sizeDelta = new Vector2(_order.preferredWidth + 40f, 60f);
+        }
+
+        /// <summary>Vertical glass meter: current fill vs the customer's target line.</summary>
+        public void SetGlass(bool on, float fill, float target, Color c)
+        {
+            if (_glassRoot.gameObject.activeSelf != on) _glassRoot.gameObject.SetActive(on);
+            if (!on) return;
+            const float H = 380f - 16f;
+            _glassFillImg.color = c;
+            _glassFillImg.rectTransform.sizeDelta = new Vector2(-16f, Mathf.Clamp01(fill) * H);
+            _glassLineImg.rectTransform.anchoredPosition = new Vector2(0f, 8f + Mathf.Clamp01(target) * H);
+            ((RectTransform)_glassPct.transform.parent).anchoredPosition = new Vector2(-24f, 8f + Mathf.Clamp01(target) * H);
+            string t = Mathf.RoundToInt(target * 100f) + "%";
+            if (_glassPct.text != t) _glassPct.text = t;
+        }
 
         public void Flash(Color c, float strength)
         {
@@ -263,9 +319,9 @@ namespace FizzyMoo
             for (int i = 0; i < 3; i++)
             {
                 float v = (i == 0 ? mix.x : i == 1 ? mix.y : mix.z);
-                float h = Mathf.Clamp01(v / Mathf.Max(3f, sum)) * 66f;
+                float h = Mathf.Clamp01(v / Mathf.Max(3f, sum)) * 80f;
                 var rt = _mixBars[i].rectTransform;
-                rt.sizeDelta = new Vector2(52f, Mathf.Lerp(rt.sizeDelta.y, h, dt * 12f));
+                rt.sizeDelta = new Vector2(60f, Mathf.Lerp(rt.sizeDelta.y, h, dt * 12f));
             }
 
             _score.text = score.ToString();

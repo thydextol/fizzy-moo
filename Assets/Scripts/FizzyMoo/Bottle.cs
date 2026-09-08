@@ -74,10 +74,12 @@ namespace FizzyMoo
         public void AddTargetBand(float f01, Color c)
         {
             float h = f01 * (Height - 0.04f) + 0.02f;
-            var band = Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, h, 0f),
-                               new Vector3(Radius * 2.34f, 0.026f, Radius * 2.34f),
-                               Mk.Mat(c, 0.5f, 0f, c * 1.8f), "TargetBand");
-            band.name = "TargetBand";
+            var bandMat = Mk.Mat(Palette.Gold, 0.5f, 0f, Palette.Gold * 2.2f);
+            Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, h, 0f),
+                    new Vector3(Radius * 2.34f, 0.03f, Radius * 2.34f), bandMat, "TargetBand");
+            // a little tab sticking out toward the player so the line reads from the side
+            Mk.Prim(PrimitiveType.Cube, transform, new Vector3(0f, h, Radius * 1.45f),
+                    new Vector3(0.12f, 0.03f, 0.22f), bandMat, "TargetBand");
         }
 
         public void ClearBands()

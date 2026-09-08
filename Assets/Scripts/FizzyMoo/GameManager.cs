@@ -31,6 +31,7 @@ namespace FizzyMoo
 
         Transform _beacon;
         Material _beaconMat;
+        Transform[] _path = new Transform[8];   // marching dots on the grass, cow -> stand
         float _orderAge;            // seconds since the current order appeared
 
         void Start()
@@ -48,13 +49,19 @@ namespace FizzyMoo
         void BuildBeacon()
         {
             _beaconMat = Mk.Mat(Palette.Gold, 0.5f, 0f, Palette.Gold * 1.2f);
+            // A flat chevron ">" lying almost horizontal, so it reads as an arrowhead from
+            // the chase camera (a shafted 3D arrow read as a yellow slab from above).
             _beacon = Mk.Empty("Beacon", null).transform;
-            Mk.Prim(PrimitiveType.Cube, _beacon, new Vector3(0f, 0f, -0.15f), new Vector3(0.18f, 0.18f, 0.75f), _beaconMat, "Shaft", outline: true);
-            var l = Mk.Prim(PrimitiveType.Cube, _beacon, new Vector3(-0.19f, 0f, 0.36f), new Vector3(0.16f, 0.18f, 0.55f), _beaconMat, "HeadL", outline: true);
-            var r = Mk.Prim(PrimitiveType.Cube, _beacon, new Vector3( 0.19f, 0f, 0.36f), new Vector3(0.16f, 0.18f, 0.55f), _beaconMat, "HeadR", outline: true);
-            l.transform.localRotation = Quaternion.Euler(0f,  40f, 0f);
-            r.transform.localRotation = Quaternion.Euler(0f, -40f, 0f);
+            var l = Mk.Prim(PrimitiveType.Cube, _beacon, new Vector3(-0.42f, 0f, -0.30f), new Vector3(0.30f, 0.12f, 1.35f), _beaconMat, "HeadL", outline: true);
+            var r = Mk.Prim(PrimitiveType.Cube, _beacon, new Vector3( 0.42f, 0f, -0.30f), new Vector3(0.30f, 0.12f, 1.35f), _beaconMat, "HeadR", outline: true);
+            l.transform.localRotation = Quaternion.Euler(0f,  36f, 0f);
+            r.transform.localRotation = Quaternion.Euler(0f, -36f, 0f);
             _beacon.gameObject.SetActive(false);
+            for (int i = 0; i < _path.Length; i++)
+            {
+                _path[i] = Mk.Prim(PrimitiveType.Cylinder, null, Vector3.zero, new Vector3(0.7f, 0.02f, 0.7f), _beaconMat, "PathDot").transform;
+                _path[i].gameObject.SetActive(false);
+            }
         }
 
         void OnServed(int points, float quality, bool perfect)
@@ -173,6 +180,9 @@ namespace FizzyMoo
                 Hud.SetOrder("ORDER   " + Palette.Name(cust.Want) + "   " + Mathf.RoundToInt(cust.WantFill * 100f) + "%", Palette.Of(cust.Want));
             else Hud.SetOrder("", Palette.Cream);
 
+            Hud.SetGlass(order && Stand.CowInZone && Cow.State != CowState.Launched,
+                         Stand.Live.Fill, order ? cust.WantFill : 0f, order ? Palette.Of(cust.Want) : Palette.Cream);
+
             bool showBeacon = false;
             if (Phase == Phase.Playing) Hud.SetHint(Directive(cust, order, out showBeacon));
             else Hud.SetHint("");
@@ -210,7 +220,7 @@ namespace FizzyMoo
                 return "EAT " + more + " MORE " + fruit + (more == 1 ? "" : "S") + "  (" + Mathf.RoundToInt(have) + "/" + Mathf.RoundToInt(need) + " PSI)";
             }
             beacon = true;
-            return "TANK FULL  -  FOLLOW THE ARROW TO THE STAND";
+            return "TANK FULL  -  FOLLOW THE DOTS TO THE STAND";
         }
 
         void UpdateBeacon(bool on, float dt)
@@ -219,10 +229,22 @@ namespace FizzyMoo
             var flat = Stand.transform.position - Cow.transform.position; flat.y = 0f;
             on = on && flat.magnitude > 4.5f;
             if (_beacon.gameObject.activeSelf != on) _beacon.gameObject.SetActive(on);
+            foreach (var d in _path) if (d.gameObject.activeSelf != on) d.gameObject.SetActive(on);
             if (!on) return;
-            float bob = Mathf.Sin(Time.time * 4f) * 0.12f;
-            _beacon.position = Cow.transform.position + Vector3.up * (3.1f + bob) + flat.normalized * 0.6f;
-            _beacon.rotation = Quaternion.LookRotation(flat.normalized) * Quaternion.Euler(12f, 0f, 0f);
+            float bob = Mathf.Sin(Time.time * 4f) * 0.15f;
+            _beacon.position = Cow.transform.position + Vector3.up * (3.6f + bob) + flat.normalized * 0.8f;
+            // dotted path on the grass, marching toward the pour zone
+            var a = Cow.transform.position; a.y = 0.03f;
+            var b = Stand.transform.position - flat.normalized * 2.8f; b.y = 0.03f;
+            float ph = (Time.time * 0.9f) % 1f;
+            for (int i = 0; i < _path.Length; i++)
+            {
+                float t = (i + ph) / _path.Length;
+                _path[i].position = Vector3.Lerp(a, b, t);
+                float s = 0.55f + 0.35f * Mathf.Sin(t * Mathf.PI);
+                _path[i].localScale = new Vector3(s, 0.02f, s);
+            }
+            _beacon.rotation = Quaternion.LookRotation(flat.normalized) * Quaternion.Euler(28f, 0f, 0f);
             _beaconMat.SetColor("_EmissionColor", Palette.Gold * (0.9f + Ease.Pulse(Time.time, 2f) * 0.9f));
         }
 
@@ -261,7 +283,7 @@ namespace FizzyMoo
             Phase = Phase.GameOver;
             Stand.ResetStand();
             // She keeps fermenting otherwise and blows out under the results card.
-            Cow.ResetAll();
+            Cow.Calm();
             Fruit.Wanted = null;
             string grade = Score >= 2200 ? "MASTER BREWER" : Score >= 1200 ? "HEAD OF DAIRY"
                          : Score >= 600 ? "APPRENTICE"   : "INTERN";

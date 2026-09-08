@@ -4,7 +4,13 @@ namespace FizzyMoo
 {
     public enum Phase { Title, Playing, GameOver }
 
-    /// <summary>Round rules: timer, scoring, streaks, difficulty ramp, input routing.</summary>
+    /// <summary>
+    /// Round rules: timer, scoring, streaks, difficulty ramp, input routing - and
+    /// the guidance layer. Rather than a tutorial screen, the game always states
+    /// the one next action in plain words ("EAT 2 MORE LIMES", "TANK FULL - GO TO
+    /// THE STAND", "HOLD SPACE - RELEASE ON THE LINE"), lights up the fruit it is
+    /// talking about, and floats a beacon toward the stand when it is time to pour.
+    /// </summary>
     public class GameManager : MonoBehaviour
     {
         public const float RoundTime = 120f;
@@ -23,7 +29,9 @@ namespace FizzyMoo
         public CameraRig Cam;
         public AutoPilot Auto;      // null unless demo mode is on
 
-        float _startDelay;
+        Transform _beacon;
+        Material _beaconMat;
+        float _orderAge;            // seconds since the current order appeared
 
         void Start()
         {
@@ -33,6 +41,20 @@ namespace FizzyMoo
             Cow.OnBlowout += OnBlowout;
             Hud.ShowTitle(true);
             Hud.ShowGameOver(false);
+            BuildBeacon();
+        }
+
+        /// <summary>A gold arrow that hovers over Bessie and points at the stand when the tank is ready.</summary>
+        void BuildBeacon()
+        {
+            _beaconMat = Mk.Mat(Palette.Gold, 0.5f, 0f, Palette.Gold * 1.2f);
+            _beacon = Mk.Empty("Beacon", null).transform;
+            Mk.Prim(PrimitiveType.Cube, _beacon, new Vector3(0f, 0f, -0.15f), new Vector3(0.18f, 0.18f, 0.75f), _beaconMat, "Shaft", outline: true);
+            var l = Mk.Prim(PrimitiveType.Cube, _beacon, new Vector3(-0.19f, 0f, 0.36f), new Vector3(0.16f, 0.18f, 0.55f), _beaconMat, "HeadL", outline: true);
+            var r = Mk.Prim(PrimitiveType.Cube, _beacon, new Vector3( 0.19f, 0f, 0.36f), new Vector3(0.16f, 0.18f, 0.55f), _beaconMat, "HeadR", outline: true);
+            l.transform.localRotation = Quaternion.Euler(0f,  40f, 0f);
+            r.transform.localRotation = Quaternion.Euler(0f, -40f, 0f);
+            _beacon.gameObject.SetActive(false);
         }
 
         void OnServed(int points, float quality, bool perfect)
@@ -55,7 +77,7 @@ namespace FizzyMoo
             {
                 Combo = 0;
                 Score += Mathf.RoundToInt(points * 0.3f);
-                Hud.Popup(quality > 0.2f ? "SLOPPY" : "SPILLED!", Palette.Danger);
+                Hud.Popup(quality > 0.2f ? "SLOPPY - WRONG FRUIT?" : "SPILLED!", Palette.Danger);
                 Cam.Shake(0.2f);
             }
             NextOrder();
@@ -65,7 +87,7 @@ namespace FizzyMoo
         {
             if (Phase != Phase.Playing) return;
             Combo = 0;
-            Hud.Popup("TOO SLOW", Palette.Danger);
+            Hud.Popup("TOO SLOW - THEY LEFT", Palette.Danger);
             NextOrder();
         }
 
@@ -74,7 +96,7 @@ namespace FizzyMoo
             if (Phase != Phase.Playing) return;
             Blowouts++;
             Combo = 0;
-            Hud.Popup("BLOWOUT!", Palette.Danger);
+            Hud.Popup("BLOWOUT!  100 PSI", Palette.Danger);
             Hud.Flash(Palette.Danger, 1f);
             Cam.Shake(0.9f);
         }
@@ -90,6 +112,7 @@ namespace FizzyMoo
         {
             if (Phase != Phase.Playing) return;
             Stand.NextCustomer(Served);
+            _orderAge = 0f;
         }
 
         void Update()
@@ -115,6 +138,10 @@ namespace FizzyMoo
                 start = Input.GetKeyDown(KeyCode.Space);
             }
 
+            // Live-demo hotkeys: B = "watch the udder" (jump to 92 PSI), P = toggle the autopilot.
+            if (Input.GetKeyDown(KeyCode.B) && Phase == Phase.Playing) Cow.Bloat(92f);
+            if (Input.GetKeyDown(KeyCode.P)) ToggleAutopilot();
+
             switch (Phase)
             {
                 case Phase.Title:
@@ -125,32 +152,94 @@ namespace FizzyMoo
                 case Phase.Playing:
                     Cow.SetInput(move, vent);
                     TimeLeft -= dt;
+                    _orderAge += dt;
                     if (TimeLeft <= 0f) { TimeLeft = 0f; End(); }
                     break;
 
                 case Phase.GameOver:
                     Cow.SetInput(Vector2.zero, false);
-                    if (Input.GetKeyDown(KeyCode.R)) Restart();
+                    if (Input.GetKeyDown(KeyCode.R) || (Auto != null && Auto.Enabled && start)) Restart();
                     break;
             }
 
-            // --- hud ----------------------------------------------------------
+            // --- hud + guidance -------------------------------------------------
             Hud.Tick(Cow.PressureNorm, Cow.FlavorMix, Score, Combo, TimeLeft, Served, dt);
 
-            if (Phase == Phase.Playing)
-            {
-                if (Cow.State == CowState.Launched) Hud.SetHint("");
-                else if (Cow.PressureNorm > 0.85f)  Hud.SetHint("SHE'S GONNA BLOW - VENT NOW!");
-                else if (Stand.CowInZone)           Hud.SetHint("HOLD  SPACE  TO POUR - MATCH THE LINE");
-                else if (Cow.PressureNorm < 0.12f)  Hud.SetHint("EAT FRUIT TO BUILD PRESSURE");
-                else                                Hud.SetHint("GET TO THE STAND");
-            }
-            else Hud.SetHint("");
-
             var cust = Stand.Customer;
-            if (Phase == Phase.Playing && cust != null && cust.Active)
+            bool order = Phase == Phase.Playing && cust != null && cust.Active;
+            Fruit.Wanted = order ? cust.Want : (Flavor?)null;
+
+            if (order)
                 Hud.SetOrder("ORDER   " + Palette.Name(cust.Want) + "   " + Mathf.RoundToInt(cust.WantFill * 100f) + "%", Palette.Of(cust.Want));
             else Hud.SetOrder("", Palette.Cream);
+
+            bool showBeacon = false;
+            if (Phase == Phase.Playing) Hud.SetHint(Directive(cust, order, out showBeacon));
+            else Hud.SetHint("");
+            UpdateBeacon(showBeacon, dt);
+        }
+
+        /// <summary>The single next action, in words. This is the whole tutorial.</summary>
+        string Directive(Customer cust, bool order, out bool beacon)
+        {
+            beacon = false;
+            if (Cow.State == CowState.Launched) return "OOPS.  SHE'LL BE FINE.";
+            if (Cow.PressureNorm > 0.85f) return "SHE'S GONNA BLOW  -  VENT NOW!";
+            if (!order) return "NEXT CUSTOMER INCOMING...";
+
+            float need = cust.WantFill * SodaStand.BottleCapacity;
+            float have = Cow.Pressure;
+            Cow.DominantFlavor(out var dom, out var purity);
+            bool tankHasWrong = Cow.FruitEaten > 0 && (dom != cust.Want || purity < 0.6f);
+
+            if (Stand.CowInZone)
+            {
+                if (Stand.Pouring) return "RELEASE ON THE LINE!";
+                if (have < need - 1f) return "NOT ENOUGH PRESSURE  -  EAT " + Palette.Short(cust.Want) + " FRUIT";
+                return "HOLD  SPACE  TO POUR  -  RELEASE ON THE LINE";
+            }
+            if (tankHasWrong && have > need * 0.5f)
+                return "WRONG FRUIT IN THE TANK  -  HOLD SPACE OUT HERE TO VENT IT";
+
+            int more = Mathf.CeilToInt(Mathf.Max(0f, need - have) / 13f);
+            if (more > 0)
+            {
+                string fruit = cust.Want == Flavor.KeyLime ? "LIME" : cust.Want == Flavor.OrangeCream ? "ORANGE" : "PINEAPPLE";
+                if (_orderAge < 3.5f && Served == 0)
+                    return "THEY WANT " + Palette.Name(cust.Want) + "  -  EAT THE GLOWING " + fruit + "S";
+                return "EAT " + more + " MORE " + fruit + (more == 1 ? "" : "S") + "  (" + Mathf.RoundToInt(have) + "/" + Mathf.RoundToInt(need) + " PSI)";
+            }
+            beacon = true;
+            return "TANK FULL  -  FOLLOW THE ARROW TO THE STAND";
+        }
+
+        void UpdateBeacon(bool on, float dt)
+        {
+            if (_beacon == null) return;
+            var flat = Stand.transform.position - Cow.transform.position; flat.y = 0f;
+            on = on && flat.magnitude > 4.5f;
+            if (_beacon.gameObject.activeSelf != on) _beacon.gameObject.SetActive(on);
+            if (!on) return;
+            float bob = Mathf.Sin(Time.time * 4f) * 0.12f;
+            _beacon.position = Cow.transform.position + Vector3.up * (3.1f + bob) + flat.normalized * 0.6f;
+            _beacon.rotation = Quaternion.LookRotation(flat.normalized) * Quaternion.Euler(12f, 0f, 0f);
+            _beaconMat.SetColor("_EmissionColor", Palette.Gold * (0.9f + Ease.Pulse(Time.time, 2f) * 0.9f));
+        }
+
+        void ToggleAutopilot()
+        {
+            if (Auto == null)
+            {
+                Auto = gameObject.AddComponent<AutoPilot>();
+                Auto.Bind(Cow, Stand, FindObjectsByType<Fruit>());
+                Auto.Enabled = true;
+                Hud.Popup("AUTOPILOT ON", Palette.Gold);
+            }
+            else
+            {
+                Auto.Enabled = !Auto.Enabled;
+                Hud.Popup(Auto.Enabled ? "AUTOPILOT ON" : "AUTOPILOT OFF", Palette.Gold);
+            }
         }
 
         void Begin()
@@ -164,6 +253,7 @@ namespace FizzyMoo
             Hud.ShowGameOver(false);
             Sfx.I?.Play(ProcAudio.Moo, 0.8f);
             Stand.NextCustomer(0);
+            _orderAge = 0f;
         }
 
         void End()
@@ -172,8 +262,9 @@ namespace FizzyMoo
             Stand.ResetStand();
             // She keeps fermenting otherwise and blows out under the results card.
             Cow.ResetAll();
-            string grade = Score >= 1400 ? "MASTER BREWER" : Score >= 900 ? "HEAD OF DAIRY"
-                         : Score >= 500 ? "APPRENTICE"   : "INTERN";
+            Fruit.Wanted = null;
+            string grade = Score >= 2200 ? "MASTER BREWER" : Score >= 1200 ? "HEAD OF DAIRY"
+                         : Score >= 600 ? "APPRENTICE"   : "INTERN";
             Hud.ShowGameOver(true, "TIME!",
                 $"{Score} POINTS   -   {grade}\n\n" +
                 $"{Served} served     {Perfect} perfect     {Blowouts} blowouts\n\n" +

@@ -25,6 +25,7 @@ namespace FizzyMoo
         bool _started;
         int _ordersSeen = -1;
         bool _showboat;            // this order is the intentional blowout
+        bool _reckless;            // this order ignores wrong fruit on the way -> a SLOPPY pour
 
         public void Bind(CowController cow, SodaStand stand, Fruit[] fruit)
         {
@@ -58,7 +59,7 @@ namespace FizzyMoo
             {
                 // New order? decide whether to showboat.
                 int id = Mathf.RoundToInt(cust.PatienceLeft * 1000f);
-                if (_lastPatience < cust.PatienceLeft) { _ordersSeen++; _showboat = _ordersSeen == 1; }
+                if (_lastPatience < cust.PatienceLeft) { _ordersSeen++; _showboat = _ordersSeen == 1 || _ordersSeen == 12; _reckless = _ordersSeen == 6; }
                 _lastPatience = cust.PatienceLeft;
 
                 if (_mode == Mode.Wait || _mode == Mode.Bleed)
@@ -135,7 +136,7 @@ namespace FizzyMoo
 
             Vector2 avoid = Vector2.zero;
             const float R = 3.0f;
-            foreach (var b in _fruit)
+            if (!_reckless) foreach (var b in _fruit)
             {
                 if (b == null || !b.Available) continue;
                 if (edible.HasValue && b.Flavor == edible.Value) continue;   // safe to hit

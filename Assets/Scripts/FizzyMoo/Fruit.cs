@@ -19,6 +19,8 @@ namespace FizzyMoo
         static System.Random _rng = new System.Random(1234);
 
         public const float FieldRadius = 13.5f;
+        /// <summary>Set by the GameManager; fruit of this flavour pulse so the player knows what to eat.</summary>
+        public static Flavor? Wanted;
 
         public static Fruit Spawn(Transform parent, Flavor f, Vector3 pos)
         {
@@ -110,8 +112,13 @@ namespace FizzyMoo
                 return;
             }
             _phase += Time.deltaTime;
-            _visual.localPosition = new Vector3(0f, 0.55f + Mathf.Sin(_phase * 2.1f) * 0.11f, 0f);
+            bool wanted = Wanted.HasValue && Wanted.Value == Flavor;
+            float pulse = wanted ? Ease.Pulse(_phase, 1.8f) : 0f;
+            _visual.localPosition = new Vector3(0f, 0.55f + Mathf.Sin(_phase * 2.1f) * 0.11f + pulse * 0.12f, 0f);
             _visual.localRotation = Quaternion.Euler(0f, _phase * 55f, Mathf.Sin(_phase * 1.7f) * 8f);
+            _visual.localScale = Vector3.one * (wanted ? 1.12f + pulse * 0.10f : 1f);
+            var c = Palette.Of(Flavor);
+            _mat.SetColor("_EmissionColor", c * (wanted ? 0.6f + pulse * 1.2f : 0.35f));
         }
 
         void OnTriggerEnter(Collider other)

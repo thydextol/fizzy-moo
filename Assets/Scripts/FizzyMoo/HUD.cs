@@ -68,8 +68,8 @@ namespace FizzyMoo
                                   new Vector2(-48f, -46f), new Vector2(460f, 60f));
             _served = UIKit.LabelShadowed("Served", vBox, "0 SERVED", 40, Palette.Cream, TextAnchor.MiddleRight);
             var oBox = UIKit.Rect("OrderBox", root, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 1f),
-                                  new Vector2(-48f, -104f), new Vector2(640f, 46f));
-            _order = UIKit.LabelShadowed("Order", oBox, "", 34, Palette.Cream, TextAnchor.MiddleRight);
+                                  new Vector2(-48f, -108f), new Vector2(760f, 56f));
+            _order = UIKit.LabelShadowed("Order", oBox, "", 42, Palette.Cream, TextAnchor.MiddleRight);
 
             // --- pressure gauge (left, mid) --------------------------------------
             _gaugeRoot = UIKit.Rect("Gauge", root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 0.5f),
@@ -146,7 +146,7 @@ namespace FizzyMoo
 
             // --- title / game-over panels ------------------------------------------------
             _panelTitle = BuildPanel(root, out _bigTitle, out _bigSub, "",
-                                     "WASD / ARROWS to graze      SPACE to pour\n\nPress  SPACE  to start");
+                                     "Eat the fruit the customer wants  -  pour at the stand  -  release on the line\nDon't hit 100 PSI.\n\nWASD to move      hold SPACE to pour      Press SPACE to start");
             BuildWordmark(_panelTitle);
             _panelOver = BuildPanel(root, out var ot, out var os, "TIME!", "");
             _overTitle = ot; _overSub = os;
@@ -269,7 +269,9 @@ namespace FizzyMoo
             }
 
             _score.text = score.ToString();
-            _combo.text = combo >= 2 ? "x" + combo + " STREAK" : "";
+            // Show the real multiplier (capped at x3), not the raw streak count.
+            float mult = 1f + Mathf.Min(combo - 1, 8) * 0.25f;
+            _combo.text = combo >= 2 ? "x" + mult.ToString("0.##") + "  -  " + combo + " STREAK" : "";
             _served.text = served + (served == 1 ? " SERVED" : " SERVED");
 
             int m = Mathf.Max(0, Mathf.FloorToInt(timeLeft / 60f));

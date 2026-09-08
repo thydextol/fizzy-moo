@@ -25,7 +25,7 @@ namespace FizzyMoo
         const float FermentPerBerry      = 1.05f;   // added to the per-second climb
         const float FermentDecay         = 0.16f;   // fermentation calms down slowly
         const float VentRate             = 34f;     // pressure released per second
-        const float StunTime             = 2.6f;
+        const float StunTime             = 2.2f;
         const float SpeedPressurePenalty = 0.34f;   // full udder = slower cow
 
         // --- state ----------------------------------------------------------
@@ -257,6 +257,15 @@ namespace FizzyMoo
             _rig.Chomp();
             Sfx.I?.Play(ProcAudio.Chomp, 0.7f, Random.Range(0.9f, 1.15f));
             OnAte?.Invoke(f);
+        }
+
+        /// <summary>Demo-day hotkey: jump to a dangerous charge so the room can watch the udder, then the blowout.</summary>
+        public void Bloat(float p)
+        {
+            if (State == CowState.Launched) return;
+            Pressure = Mathf.Max(Pressure, p);
+            _ferment = Mathf.Max(_ferment, 2.5f);
+            _rig.Wobble(8f);
         }
 
         /// <summary>Called by the stand once a bottle is served - the udder empties out.</summary>

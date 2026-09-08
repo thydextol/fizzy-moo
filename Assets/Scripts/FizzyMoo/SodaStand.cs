@@ -81,7 +81,7 @@ namespace FizzyMoo
             // the product line, on display where customers queue
             for (int i = 0; i < 3; i++)
             {
-                var can = Can.Build(transform, new Vector3(-0.95f + i * 0.95f, 1.22f, -0.34f), (Flavor)i, 0.42f);
+                var can = Can.Build(transform, new Vector3(-1.05f + i * 1.05f, 1.22f, -0.34f), (Flavor)i, 0.56f);
                 can.SpinSpeed = 16f;   // slow turntable, like a shelf display
                 can.transform.localRotation = Quaternion.Euler(0f, 180f + (i - 1) * 14f, 0f);
             }
@@ -108,7 +108,7 @@ namespace FizzyMoo
             zoneQuad.GetComponent<Renderer>().sharedMaterial = _zoneMat;
             _zoneDisc = zoneQuad.transform;
 
-            Customer = Customer.Build(transform, new Vector3(-2.55f, 0f, 0.15f));
+            Customer = Customer.Build(transform, new Vector3(-2.8f, 0f, 0.9f));
             Customer.transform.localRotation = Quaternion.Euler(0f, 78f, 0f);
             Customer.Hide();
 

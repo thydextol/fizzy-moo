@@ -43,7 +43,7 @@ namespace FizzyMoo
             if (DemoMode)
             {
                 var auto = gameObject.AddComponent<AutoPilot>();
-                auto.Bind(cow, stand, FindObjectsByType<Fruit>(FindObjectsSortMode.None));
+                auto.Bind(cow, stand, FindObjectsByType<Fruit>());
                 auto.Enabled = true;
                 gm.Auto = auto;
             }

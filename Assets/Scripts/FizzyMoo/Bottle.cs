@@ -75,8 +75,8 @@ namespace FizzyMoo
         {
             float h = f01 * (Height - 0.04f) + 0.02f;
             var band = Mk.Prim(PrimitiveType.Cylinder, transform, new Vector3(0f, h, 0f),
-                               new Vector3(Radius * 2.2f, 0.012f, Radius * 2.2f),
-                               Mk.Mat(c, 0.5f, 0f, c * 1.5f), "TargetBand");
+                               new Vector3(Radius * 2.34f, 0.026f, Radius * 2.34f),
+                               Mk.Mat(c, 0.5f, 0f, c * 1.8f), "TargetBand");
             band.name = "TargetBand";
         }
 

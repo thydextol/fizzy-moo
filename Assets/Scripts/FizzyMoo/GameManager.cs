@@ -170,6 +170,8 @@ namespace FizzyMoo
         {
             Phase = Phase.GameOver;
             Stand.ResetStand();
+            // She keeps fermenting otherwise and blows out under the results card.
+            Cow.ResetAll();
             string grade = Score >= 1400 ? "MASTER BREWER" : Score >= 900 ? "HEAD OF DAIRY"
                          : Score >= 500 ? "APPRENTICE"   : "INTERN";
             Hud.ShowGameOver(true, "TIME!",

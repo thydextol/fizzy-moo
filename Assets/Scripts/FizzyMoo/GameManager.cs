@@ -183,6 +183,11 @@ namespace FizzyMoo
             Hud.SetGlass(order && Stand.CowInZone && Cow.State != CowState.Launched,
                          Stand.Live.Fill, order ? cust.WantFill : 0f, order ? Palette.Of(cust.Want) : Palette.Cream);
 
+            Hud.SetNeed(order, order ? cust.WantFill * SodaStand.BottleCapacity / CowController.MaxPressure : 0f);
+            Cow.DominantFlavor(out var tankDom, out var tankPurity);
+            Hud.SetTank(Cow.FruitEaten > 0 ? Palette.Short(tankDom) + "  " + Mathf.RoundToInt(tankPurity * 100f) + "%" : "EMPTY",
+                        Cow.FruitEaten > 0 ? Palette.Of(tankDom) : Palette.Cream);
+
             bool showBeacon = false;
             if (Phase == Phase.Playing) Hud.SetHint(Directive(cust, order, out showBeacon));
             else Hud.SetHint("");
@@ -194,7 +199,9 @@ namespace FizzyMoo
         {
             beacon = false;
             if (Cow.State == CowState.Launched) return "OOPS.  SHE'LL BE FINE.";
-            if (Cow.PressureNorm > 0.85f) return "SHE'S GONNA BLOW  -  VENT NOW!";
+            if (Stand.Pouring) return "RELEASE ON THE LINE!";
+            if (Cow.PressureNorm > 0.85f)
+                return Stand.CowInZone ? "SHE'S GONNA BLOW  -  HOLD SPACE, POUR NOW!" : "SHE'S GONNA BLOW  -  HOLD SPACE TO VENT!";
             if (!order) return "NEXT CUSTOMER INCOMING...";
 
             float need = cust.WantFill * SodaStand.BottleCapacity;
@@ -204,7 +211,6 @@ namespace FizzyMoo
 
             if (Stand.CowInZone)
             {
-                if (Stand.Pouring) return "RELEASE ON THE LINE!";
                 if (have < need - 1f) return "NOT ENOUGH PRESSURE  -  EAT " + Palette.Short(cust.Want) + " FRUIT";
                 return "HOLD  SPACE  TO POUR  -  RELEASE ON THE LINE";
             }

@@ -135,6 +135,7 @@ namespace FizzyMoo
         {
             var d = to - from; d.y = 0f;
             Vector2 dir = d.sqrMagnitude < 0.16f ? Vector2.zero : new Vector2(d.x, d.z).normalized;
+            if (d.magnitude < 2.0f) return dir;      // commit: no dodging in the last two metres
 
             Vector2 avoid = Vector2.zero;
             const float R = 3.0f;
@@ -145,6 +146,7 @@ namespace FizzyMoo
                 var o = b.transform.position - from; o.y = 0f;
                 float dist = o.magnitude;
                 if (dist > R || dist < 0.01f) continue;
+                if (Vector2.Dot(new Vector2(o.x, o.z) / dist, dir) < 0f) continue;   // behind us - irrelevant
                 avoid -= new Vector2(o.x, o.z).normalized * ((1f - dist / R) * 1.7f);
             }
             return Vector2.ClampMagnitude(dir + avoid, 1f);

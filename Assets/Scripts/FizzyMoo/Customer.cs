@@ -150,8 +150,11 @@ namespace FizzyMoo
         {
             StopAllCoroutines();
             Want = (Flavor)_rng.Next(0, 3);
-            WantFill = Mathf.Lerp(0.30f, 0.92f, (float)_rng.NextDouble());
-            Patience = Mathf.Max(13f, 27f - difficulty * 1.6f);
+            float roll = (float)_rng.NextDouble();
+            // The first order of a round is a half glass with a long fuse: two fruit, no
+            // near-blowout while the player is still reading the hints.
+            WantFill = difficulty == 0 ? 0.50f : Mathf.Lerp(0.30f, 0.92f, roll);
+            Patience = difficulty == 0 ? 40f : Mathf.Max(13f, 27f - difficulty * 1.6f);
             PatienceLeft = Patience;
             Active = true;
             Restyle(_rng.Next());

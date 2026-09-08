@@ -163,6 +163,10 @@ namespace FizzyMoo
             var flat = _cow.transform.position - _zoneDisc.position;
             flat.y = 0f;
             CowInZone = flat.magnitude <= ServeRadius + 0.9f;
+            // Venting to empty outside the ring dumps the flavour as well, so the hint
+            // "hold Space out here to vent it" is actually true.
+            if (!CowInZone && _cow.CanAct && _cow.State == CowState.Venting && _cow.Pressure <= 1.5f && _cow.FruitEaten > 0)
+                _cow.ClearFlavor();
 
             // Zone marker glows when you are standing in it and ready to pour.
             var zc = CowInZone ? Palette.Gold : Palette.Cream;
@@ -192,7 +196,12 @@ namespace FizzyMoo
                 if (Pouring)
                 {
                     Pouring = false;
-                    if (active && Charge > 0.5f) Judge(overflow: false);
+                    // A nervous tap of Space is forgiven: under ~8% of a glass just resets it.
+                    if (active)
+                    {
+                        if (Charge >= 4f) Judge(overflow: false);
+                        else { Charge = 0f; Live.SetFill(0f); }
+                    }
                 }
             }
 

@@ -14,8 +14,9 @@ namespace FizzyMoo
         Image _gaugeFill, _gaugeGlow, _vignette, _flash;
         Text _psi, _score, _combo, _timer, _served, _order, _hint, _bigTitle, _bigSub;
         RectTransform _gaugeRoot, _panelTitle, _panelOver, _mixRoot, _glassRoot;
-        Image _orderPill, _glassFillImg, _glassLineImg;
-        Text _glassPct;
+        Image _orderPill, _glassFillImg, _glassLineImg, _hintPill, _needTick;
+        Text _glassPct, _tank;
+        RectTransform _needPivot;
         Image[] _mixBars = new Image[3];
         Text[] _pops = new Text[6];
         float[] _popT = new float[6];
@@ -104,6 +105,16 @@ namespace FizzyMoo
             _gaugeFill.fillClockwise = true;
             _gaugeFill.fillAmount = 0f;
 
+            // "how much is enough": a white tick on the ring at the current order's PSI
+            _needPivot = UIKit.Rect("NeedPivot", _gaugeRoot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
+                                    Vector2.zero, new Vector2(280f, 280f));
+            _needTick = UIKit.Img("NeedTick", _needPivot, Color.white);
+            _needTick.rectTransform.anchorMin = _needTick.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            _needTick.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            _needTick.rectTransform.anchoredPosition = new Vector2(0f, -122f);
+            _needTick.rectTransform.sizeDelta = new Vector2(12f, 44f);
+            _needPivot.gameObject.SetActive(false);
+
             var pBox = UIKit.Rect("PsiBox", _gaugeRoot, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
                                   new Vector2(0f, 6f), new Vector2(220f, 90f));
             _psi = UIKit.LabelShadowed("Psi", pBox, "0", 68, Palette.Cream);
@@ -115,6 +126,12 @@ namespace FizzyMoo
             var mixRoot = UIKit.Rect("Mix", root, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0.5f, 1f),
                                      new Vector2(200f, -200f), new Vector2(260f, 110f));
             _mixRoot = mixRoot;
+            var tkBox = UIKit.Rect("TankTitle", mixRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
+                                   new Vector2(0f, 34f), new Vector2(220f, 30f));
+            UIKit.LabelShadowed("TankTitle", tkBox, "IN THE TANK", 22, new Color(1f, 1f, 1f, 0.85f));
+            var tkVal = UIKit.Rect("TankVal", mixRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 1f),
+                                   new Vector2(0f, -200f), new Vector2(260f, 40f));
+            _tank = UIKit.LabelShadowed("TankVal", tkVal, "EMPTY", 30, Palette.Cream);
             string[] nm = { "LIME", "ORANGE", "PINA" };
             for (int i = 0; i < 3; i++)
             {
@@ -140,8 +157,12 @@ namespace FizzyMoo
 
             // --- hint (bottom-centre) -------------------------------------------------
             var hBox = UIKit.Rect("HintBox", root, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-                                  new Vector2(0f, 74f), new Vector2(1200f, 64f));
-            _hint = UIKit.LabelShadowed("Hint", hBox, "", 40, Palette.Cream);
+                                  new Vector2(0f, 74f), new Vector2(1560f, 76f));
+            _hintPill = UIKit.Img("HintPill", hBox, new Color(0.04f, 0.05f, 0.09f, 0.45f));
+            _hintPill.rectTransform.anchorMin = _hintPill.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+            _hintPill.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+            _hintPill.rectTransform.sizeDelta = new Vector2(0f, 76f);
+            _hint = UIKit.LabelShadowed("Hint", hBox, "", 46, Palette.Cream);
 
             // --- glass meter: shown while in the pour zone, because the real glass and its
             //     target line are tiny from the chase camera --------------------------------
@@ -254,7 +275,22 @@ namespace FizzyMoo
             if (on && _glassRoot != null) _glassRoot.gameObject.SetActive(false);
         }
 
-        public void SetHint(string s) { if (_hint.text != s) _hint.text = s; }
+        public void SetHint(string s)
+        {
+            if (_hint.text != s) _hint.text = s;
+            bool any = s.Length > 0;
+            if (_hintPill.gameObject.activeSelf != any) _hintPill.gameObject.SetActive(any);
+            if (any) _hintPill.rectTransform.sizeDelta = new Vector2(_hint.preferredWidth + 56f, 76f);
+        }
+
+        /// <summary>Tick on the PSI ring at the pressure the current order needs.</summary>
+        public void SetNeed(bool on, float need01)
+        {
+            if (_needPivot.gameObject.activeSelf != on) _needPivot.gameObject.SetActive(on);
+            if (on) _needPivot.localRotation = Quaternion.Euler(0f, 0f, -Mathf.Clamp01(need01) * 360f);
+        }
+
+        public void SetTank(string s, Color c) { if (_tank.text != s) _tank.text = s; _tank.color = c; }
 
         public void SetOrder(string s, Color c)
         {

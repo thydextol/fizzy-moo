@@ -34,6 +34,7 @@ namespace FizzyMoo
         Transform[] _path = new Transform[8];   // marching dots on the grass, cow -> stand
         float _orderAge;            // seconds since the current order appeared
         float _teachT;              // seconds left on the post-blowout lesson
+        float _refuseT;             // throttles the "press E" nag while the tap is shut
         bool _hurry;
 
         void Start()
@@ -42,6 +43,7 @@ namespace FizzyMoo
             Stand.OnServed += OnServed;
             Stand.OnTimeout += OnTimeout;
             Cow.OnBlowout += OnBlowout;
+            Cow.OnAte += OnAte;
             Hud.ShowTitle(true);
             Hud.ShowGameOver(false);
             BuildBeacon();
@@ -86,7 +88,18 @@ namespace FizzyMoo
             {
                 Combo = 0;
                 Score += Mathf.RoundToInt(points * 0.3f);
-                Hud.Popup(quality > 0.2f ? "SLOPPY - WRONG FRUIT?" : "SPILLED!", Palette.Danger);
+                // One message per cause. The old single string fired for both a right-flavour bad
+                // release and a perfect-fill wrong pour, with a question mark that read as a guess.
+                string why;
+                if (Stand.LastOverflow)
+                    why = "SPILLED!  TOO FULL";
+                else if (!Stand.LastFlavorRight && Stand.LastDom != Stand.LastWant)
+                    why = "WRONG  -  THEY WANTED " + Palette.Name(Stand.LastWant);
+                else if (!Stand.LastFlavorRight)
+                    why = "MUDDY MIX  -  ONLY " + Mathf.RoundToInt(Stand.LastPurity * 100f) + "% " + Palette.Short(Stand.LastWant);
+                else
+                    why = "MISSED THE LINE  -  " + Mathf.RoundToInt(Stand.LastFill * 100f) + "%  vs  " + Mathf.RoundToInt(Stand.LastWantFill * 100f) + "%";
+                Hud.Popup(why, Palette.Danger);
                 Cam.Shake(0.2f);
             }
             NextOrder();
@@ -109,6 +122,15 @@ namespace FizzyMoo
             Hud.Flash(Palette.Danger, 1f);
             Cam.Shake(0.9f);
             _teachT = 5f;
+        }
+
+        /// <summary>Eating IS choosing. Say so at the moment it happens, in the flavour's own colour.</summary>
+        void OnAte(Flavor f)
+        {
+            if (Phase != Phase.Playing) return;
+            var c = Stand.Customer;
+            bool wrong = c != null && c.Active && f != c.Want;
+            Hud.Popup((wrong ? "WRONG FRUIT!   " : "+1   ") + Palette.Short(f), wrong ? Palette.Danger : Palette.Of(f));
         }
 
         void NextOrder()
@@ -152,6 +174,36 @@ namespace FizzyMoo
             if (Input.GetKeyDown(KeyCode.B) && Phase == Phase.Playing) Cow.Bloat(92f);
             if (Input.GetKeyDown(KeyCode.P)) ToggleAutopilot();
 
+            // E dumps the tank. This is the flavour selector the player goes looking for.
+            if (Input.GetKeyDown(KeyCode.E) && Phase == Phase.Playing && Cow.CanAct)
+            {
+                bool had = Cow.FruitEaten > 0 || Cow.Pressure > 0.5f;
+                Cow.Dump();
+                if (had) Hud.Popup("TANK  EMPTY", Palette.Cream);
+            }
+
+            // The tap refuses a tank that cannot score: the vent input never reaches the cow,
+            // so no pressure is spent, Charge stays 0 and Judge() is never called.
+            bool blocked = Phase == Phase.Playing && Stand.PourBlocked && vent && Cow.CanAct;
+            Stand.RefuseInput = blocked;
+            if (blocked)
+            {
+                vent = false;
+                _refuseT -= dt;
+                if (_refuseT <= 0f)
+                {
+                    _refuseT = 1.1f;
+                    bool empty = Cow.FlavorMix.sqrMagnitude < 0.001f;
+                    Hud.Popup(empty ? "NOTHING IN THE TANK" : "PRESS   E   TO DUMP", Palette.Danger);
+                    Sfx.I?.Play(ProcAudio.Buzz, 0.5f, 0.7f);
+                    Cam.Shake(0.08f);
+                }
+                // AutoPilot holds vent until fill rises, so it would deadlock in the ring.
+                // Let the demo brain do what the player is being told to do; it re-enters Gather.
+                if (Auto != null && Auto.Enabled) Cow.Dump();
+            }
+            else _refuseT = 0f;
+
             switch (Phase)
             {
                 case Phase.Title:
@@ -189,13 +241,30 @@ namespace FizzyMoo
                              hurry ? Palette.Danger : Palette.Of(cust.Want));
             else Hud.SetOrder("", Palette.Cream);
 
+            // One read of the tank feeds the meter caption and the bottom-left readout, so they
+            // can never disagree. Gating on the mix (not the FruitEaten counter) means an empty
+            // tank can never announce a flavour.
+            Cow.DominantFlavor(out var tankDom, out float tankPurity);
+            bool tankEmpty = Cow.FlavorMix.sqrMagnitude < 0.001f;
+            string gs = ""; Color gc = Palette.Cream;
+            if (order)
+            {
+                string wantWord = cust.Want == Flavor.KeyLime ? "LIMES" : cust.Want == Flavor.OrangeCream ? "ORANGES" : "PINEAPPLES";
+                int pct = Mathf.RoundToInt(tankPurity * 100f);
+                // Never print a gold verdict the scorer will not honour: "good" only above the
+                // same 0.80 gate Judge() uses for a perfect pour.
+                if (tankEmpty)                             { gs = "TANK EMPTY  -  EAT " + wantWord;                                  gc = Palette.Cream; }
+                else if (tankDom != cust.Want)             { gs = "WRONG FLAVOUR  -  PRESS  E";                                      gc = Palette.Danger; }
+                else if (tankPurity < Palette.PurityPour)  { gs = "TOO MUDDY  -  PRESS  E";                                          gc = Palette.Danger; }
+                else if (tankPurity < Palette.PurityClean) { gs = "MUDDY  -  " + pct + "% " + Palette.Short(tankDom);                 gc = Palette.Peach; }
+                else                                       { gs = Palette.Short(tankDom) + "  " + pct + "%  -  RELEASE AT THE LINE"; gc = Palette.Tank(Cow.FlavorMix); }
+            }
             Hud.SetGlass(order && Stand.CowInZone && Cow.State != CowState.Launched,
-                         Stand.Live.Fill, order ? cust.WantFill : 0f, order ? Palette.Of(cust.Want) : Palette.Cream);
+                         Stand.Live.Fill, order ? cust.WantFill : 0f, Palette.Tank(Cow.FlavorMix), gs, gc);
 
             Hud.SetNeed(order, order ? cust.WantFill * SodaStand.BottleCapacity / CowController.MaxPressure : 0f);
-            Cow.DominantFlavor(out var tankDom, out var tankPurity);
-            Hud.SetTank(Cow.FruitEaten > 0 ? Palette.Short(tankDom) + "  " + Mathf.RoundToInt(tankPurity * 100f) + "%" : "EMPTY",
-                        Cow.FruitEaten > 0 ? Palette.Of(tankDom) : Palette.Cream);
+            Hud.SetTank(tankEmpty ? "EMPTY" : Palette.Short(tankDom) + "  " + Mathf.RoundToInt(tankPurity * 100f) + "%",
+                        tankEmpty ? Palette.Cream : Palette.Tank(Cow.FlavorMix));
 
             bool showBeacon = false;
             if (Phase == Phase.Playing)
@@ -214,6 +283,20 @@ namespace FizzyMoo
             beacon = false;
             if (Cow.State == CowState.Launched) return "OOPS.  SHE'LL BE FINE.";
             if (_teachT > 0f) return "BLOWOUT!  FRUIT KEEPS FERMENTING  -  POUR BEFORE 100 PSI";
+
+            // Evaluated ABOVE the Pouring and pressure early-returns. The instant Space goes
+            // down is the only instant this warning matters, and it used to be replaced by
+            // encouragement at exactly that moment.
+            if (order)
+            {
+                Cow.DominantFlavor(out var d0, out float p0);
+                bool empty0 = Cow.FlavorMix.sqrMagnitude < 0.001f;
+                if (!empty0 && d0 != cust.Want)
+                    return "WRONG FLAVOUR IN THE TANK  -  PRESS  E  TO DUMP IT";
+                if (!empty0 && p0 < Palette.PurityPour)
+                    return "MUDDY MIX  -  ONLY " + Mathf.RoundToInt(p0 * 100f) + "% " + Palette.Short(d0) + "  -  PRESS  E  TO DUMP";
+            }
+
             if (Stand.Pouring) return "RELEASE ON THE LINE!";
             if (Cow.PressureNorm > 0.85f)
                 return Stand.CowInZone ? "SHE'S GONNA BLOW  -  HOLD SPACE, POUR NOW!" : "SHE'S GONNA BLOW  -  HOLD SPACE TO VENT!";
@@ -221,18 +304,13 @@ namespace FizzyMoo
 
             float need = cust.WantFill * SodaStand.BottleCapacity;
             float have = Cow.Pressure;
-            Cow.DominantFlavor(out var dom, out var purity);
-            bool tankHasWrong = Cow.FruitEaten > 0 && (dom != cust.Want || purity < 0.6f);
             string fruit = cust.Want == Flavor.KeyLime ? "LIME" : cust.Want == Flavor.OrangeCream ? "ORANGE" : "PINEAPPLE";
 
             if (Stand.CowInZone)
             {
-                if (tankHasWrong) return "WRONG FRUIT IN THE TANK  -  STEP OUT OF THE RING, HOLD SPACE TO DUMP IT";
                 if (have < need - 1f) return "NOT ENOUGH PRESSURE  -  EAT MORE " + fruit + "S";
                 return "HOLD  SPACE  TO POUR  -  RELEASE ON THE LINE";
             }
-            if (tankHasWrong && have > need * 0.5f)
-                return "WRONG FRUIT IN THE TANK  -  HOLD SPACE OUT HERE UNTIL IT'S EMPTY";
 
             int more = Mathf.CeilToInt(Mathf.Max(0f, need - have) / 13f);
             if (more > 0)

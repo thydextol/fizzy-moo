@@ -46,12 +46,35 @@ namespace FizzyMoo
         public static string Short(Flavor f) =>
             f == Flavor.KeyLime ? "LIME" : f == Flavor.OrangeCream ? "ORANGE" : "PINA";
 
-        /// <summary>Blend the three flavour channels into the colour of the milk in the udder.</summary>
-        public static Color Mix(Vector3 m)
+        // The three thresholds the score actually uses, named once so nothing drifts.
+        public const float PurityFail  = 0.34f;   // Judge()'s flavour gate
+        public const float PurityPour  = 0.45f;   // below this even a perfect release scores under 0.5 - the tap stays shut
+        public const float PurityClean = 0.80f;   // Judge()'s "perfect" gate
+        public static readonly Color Mud = Hex(0x6E6157);
+
+        /// <summary>Dominant flavour of a mix and how pure it is. The one implementation.</summary>
+        public static void Dom(Vector3 m, out Flavor f, out float purity)
+        {
+            float sum = m.x + m.y + m.z;
+            if (sum < 0.0001f) { f = Flavor.KeyLime; purity = 0f; return; }
+            if (m.x >= m.y && m.x >= m.z) { f = Flavor.KeyLime;     purity = m.x / sum; }
+            else if (m.y >= m.z)          { f = Flavor.OrangeCream; purity = m.y / sum; }
+            else                          { f = Flavor.PinaColada;  purity = m.z / sum; }
+        }
+
+        /// <summary>
+        /// What is ACTUALLY in the keg: the dominant hue, dragged toward mud as purity falls.
+        /// The ramp mirrors Judge()'s flavour score, so the colour is honest about the score -
+        /// a contaminated tank reads dirty instead of averaging toward gold, the game's own
+        /// colour for "correct".
+        /// </summary>
+        public static Color Tank(Vector3 m)
         {
             float s = m.x + m.y + m.z;
             if (s < 0.0001f) return Cream;
-            return (KeyLime * m.x + OrangeCream * m.y + PinaColada * m.z) / s;
+            Dom(m, out var f, out float p);
+            float t = 0.15f + 0.85f * Mathf.InverseLerp(PurityFail, 1f, p);
+            return Color.Lerp(Mud, Of(f), t);
         }
     }
 

@@ -51,15 +51,7 @@ namespace FizzyMoo
         public System.Action<Flavor> OnAte;
 
         /// <summary>Dominant flavour, and how pure the mix is (1 = single flavour).</summary>
-        public void DominantFlavor(out Flavor flavor, out float purity)
-        {
-            var m = FlavorMix;
-            float sum = m.x + m.y + m.z;
-            if (sum < 0.0001f) { flavor = Flavor.KeyLime; purity = 0f; return; }
-            if (m.x >= m.y && m.x >= m.z) { flavor = Flavor.KeyLime;  purity = m.x / sum; }
-            else if (m.y >= m.z)          { flavor = Flavor.OrangeCream; purity = m.y / sum; }
-            else                          { flavor = Flavor.PinaColada;  purity = m.z / sum; }
-        }
+        public void DominantFlavor(out Flavor flavor, out float purity) => Palette.Dom(FlavorMix, out flavor, out purity);
 
         void Awake()
         {
@@ -198,7 +190,7 @@ namespace FizzyMoo
 
         void DriveFx(bool venting, float dt)
         {
-            var col = Palette.Mix(FlavorMix);
+            var col = Palette.Tank(FlavorMix);
 
             var jm = _fizzJet.main; jm.startColor = col;
             var jem = _fizzJet.emission; jem.rateOverTime = venting ? 260f : 0f;
@@ -271,6 +263,25 @@ namespace FizzyMoo
         /// <summary>Empty the tank without moving her - used when the round ends.</summary>
         public void Calm() { Pressure = 0f; _ferment = 0f; FlavorMix = Vector3.zero; FruitEaten = 0; }
 
+        /// <summary>
+        /// Empty the keg on the spot. This IS the flavour selector: she is the tank, so the
+        /// only way to change what pours is to change what is in her.
+        /// </summary>
+        public void Dump()
+        {
+            if (!CanAct) return;
+            if (Pressure <= 0.5f && FruitEaten == 0) return;
+            var foam = Color.Lerp(Color.white, Palette.Tank(FlavorMix), 0.6f);   // before the mix is zeroed
+            Pressure = 0f; _ferment = 0f; FlavorMix = Vector3.zero; FruitEaten = 0;
+            _rig.PressureNorm = 0f; _rig.FlavorMix = Vector3.zero;
+            var bm = _burst.main; bm.startColor = foam;
+            _burst.Emit(110);
+            _rig.Wobble(7f);
+            Sfx.I?.SetFizz(0f);
+            Sfx.I?.Play(ProcAudio.Launch, 0.35f, 1.5f);
+            Sfx.I?.Play(ProcAudio.Pop, 0.6f, 0.8f);
+        }
+
         /// <summary>Demo-day hotkey: jump to a dangerous charge so the room can watch the udder, then the blowout.</summary>
         public void Bloat(float p)
         {
@@ -295,13 +306,17 @@ namespace FizzyMoo
 
         void Blowout()
         {
-            var foamCol = Color.Lerp(Color.white, Palette.Mix(FlavorMix), 0.6f);   // before the mix is zeroed
+            var foamCol = Color.Lerp(Color.white, Palette.Tank(FlavorMix), 0.6f);   // before the mix is zeroed
             State = CowState.Launched;
             _stunT = StunTime;
             _righting = false;
             Pressure = 0f;
             _ferment = 0f;
             FlavorMix = Vector3.zero;
+            // Without this the HUD keeps reading "LIME 0%" after a blowout, because the
+            // tank readout gates on FruitEaten and DominantFlavor returns KeyLime for an
+            // all-zero mix - so an empty cow claims to be full of the first flavour.
+            FruitEaten = 0;
 
             _rig.PressureNorm = 0f; _rig.FlavorMix = Vector3.zero;
             Sfx.I?.SetFizz(0f);

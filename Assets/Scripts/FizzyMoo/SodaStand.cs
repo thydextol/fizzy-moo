@@ -22,6 +22,14 @@ namespace FizzyMoo
         public int OrderSeq { get; private set; }
         public bool Pouring { get; private set; }
         public float Charge { get; private set; }   // pressure units currently in the bottle
+        /// <summary>True when the tap will not open: a tank that cannot score.</summary>
+        public bool PourBlocked { get; private set; }
+        public bool RefuseInput;                 // set by GameManager while Space is held into a shut tap
+
+        // Latched inside Judge() BEFORE the tank is wiped, so the verdict can be explained.
+        public Flavor LastWant, LastDom;
+        public float LastPurity, LastFill, LastWantFill;
+        public bool LastFlavorRight, LastOverflow;
 
         Material _zoneMat, _tapMat;
         Transform _zoneDisc, _tapHandle;
@@ -157,7 +165,9 @@ namespace FizzyMoo
             _armed = false;
             Customer.NewOrder(difficulty);
             Live.AddTargetBand(Customer.WantFill, Color.white);
-            Live.SetColor(Palette.Of(Customer.Want));
+            // Cream until something is actually poured: pre-tinting with the ORDER's colour was a lie,
+            // and leaving the poured colour set means the glass keeps its evidence through the verdict.
+            Live.SetColor(Palette.Cream);
             _lockout = 0f;
         }
 
@@ -177,9 +187,19 @@ namespace FizzyMoo
             if (!CowInZone && _cow.CanAct && _cow.State == CowState.Venting && _cow.Pressure <= 1.5f && _cow.FruitEaten > 0)
                 _cow.ClearFlavor(1000f);
 
-            // Zone marker glows when you are standing in it and ready to pour.
-            var zc = CowInZone ? Palette.Gold : Palette.Cream;
-            float za = CowInZone ? 0.55f + Ease.Pulse(_phase, 1.6f) * 0.40f : 0.30f;
+            // The tap refuses a tank that cannot score. Above 0.85 PSI the block lifts so
+            // Space is still a safety valve near a blowout.
+            bool haveOrder = Customer != null && Customer.Active && _lockout <= 0f;
+            _cow.DominantFlavor(out var tDom, out float tPur);
+            bool tankOk = haveOrder && tDom == Customer.Want && tPur >= Palette.PurityPour;
+            PourBlocked = haveOrder && CowInZone && !tankOk && _cow.PressureNorm < 0.85f;
+
+            // Zone marker: gold at 1.6 Hz when ready, red at 6 Hz when the tap is shut. The
+            // frequency difference carries the state as well as the hue does.
+            Color zc; float za;
+            if (CowInZone && PourBlocked) { zc = Palette.Danger; za = 0.45f + Ease.Pulse(_phase, 6f) * 0.50f; }
+            else if (CowInZone)           { zc = Palette.Gold;   za = 0.55f + Ease.Pulse(_phase, 1.6f) * 0.40f; }
+            else                          { zc = Palette.Cream;  za = 0.30f; }
             _zoneMat.color = new Color(zc.r, zc.g, zc.b, za);
 
             bool active = Customer != null && Customer.Active && _lockout <= 0f;
@@ -189,10 +209,10 @@ namespace FizzyMoo
                 Pouring = true;
                 Charge += _cow.LastVentAmount;
                 float fill = Charge / BottleCapacity;
-                Live.SetColor(Palette.Mix(_cow.FlavorMix));
+                Live.SetColor(Palette.Tank(_cow.FlavorMix));
                 Live.SetFill(fill);
                 _tapHandle.localRotation = Quaternion.Euler(-38f, 0f, 0f);
-                var spm2 = _splash.main; spm2.startColor = Palette.Mix(_cow.FlavorMix);
+                var spm2 = _splash.main; spm2.startColor = Palette.Tank(_cow.FlavorMix);
                 var sem = _splash.emission; sem.rateOverTime = 80f;
                 if (!_splash.isPlaying) _splash.Play();
 
@@ -200,7 +220,9 @@ namespace FizzyMoo
             }
             else
             {
-                _tapHandle.localRotation = Quaternion.identity;
+                _tapHandle.localRotation = RefuseInput
+                    ? Quaternion.Euler(Mathf.Sin(_phase * 60f) * 7f, 0f, 0f)   // rattles, never swings open
+                    : Quaternion.identity;
                 if (_splash.isPlaying) { var sem = _splash.emission; sem.rateOverTime = 0f; _splash.Stop(); }
                 if (Pouring)
                 {
@@ -230,7 +252,10 @@ namespace FizzyMoo
             float want = Customer.WantFill;
 
             _cow.DominantFlavor(out var dom, out var purity);
-            bool flavorRight = dom == Customer.Want && purity > 0.34f;
+            bool flavorRight = dom == Customer.Want && purity > Palette.PurityFail;
+            // Latched before ClearFlavor wipes the tank, so the verdict can name its cause.
+            LastWant = Customer.Want; LastDom = dom; LastPurity = purity;
+            LastFlavorRight = flavorRight; LastFill = fill; LastWantFill = want; LastOverflow = overflow;
 
             // Fill accuracy: full credit inside 3%, tapering to zero at 35% off.
             float fillErr = Mathf.Abs(fill - want);
@@ -269,9 +294,9 @@ namespace FizzyMoo
             // A second burst at the customer's head so the reaction reads from the chase cam.
             _celebrate.transform.position = Customer.transform.position + Vector3.up * 2.4f;
             var cmC = _celebrate.main;
-            cmC.startColor = quality > 0.5f ? (perfect ? Palette.Gold : Palette.Of(Customer.Want)) : new Color(0.55f, 0.55f, 0.58f);
+            cmC.startColor = quality > 0.5f ? (perfect ? Palette.Gold : Palette.Tank(_cow.FlavorMix)) : new Color(0.55f, 0.55f, 0.58f);
             _celebrate.Emit(perfect ? 90 : quality > 0.5f ? 45 : 25);
-            Customer.React(quality > 0.5f, quality);
+            Customer.React(quality > 0.5f, quality, flavorRight);
             _cow.ClearFlavor(Charge);
             _lockout = 1.0f;
             OnServed?.Invoke(points, quality, perfect);

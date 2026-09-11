@@ -15,7 +15,7 @@ namespace FizzyMoo
         Text _psi, _score, _combo, _timer, _served, _order, _hint, _bigTitle, _bigSub;
         RectTransform _gaugeRoot, _panelTitle, _panelOver, _mixRoot, _glassRoot;
         Image _orderPill, _glassFillImg, _glassLineImg, _hintPill, _needTick;
-        Text _glassPct, _tank;
+        Text _glassPct, _tank, _glassTitle;
         RectTransform _needPivot;
         Image[] _mixBars = new Image[3];
         Text[] _pops = new Text[6];
@@ -181,9 +181,12 @@ namespace FizzyMoo
             var gpBox = UIKit.Rect("PctBox", _glassRoot, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(1f, 0.5f),
                                    new Vector2(-24f, 8f), new Vector2(130f, 44f));
             _glassPct = UIKit.LabelShadowed("Pct", gpBox, "", 36, Palette.Gold, TextAnchor.MiddleRight);
-            var gtBox = UIKit.Rect("TitleBox", _glassRoot, new Vector2(0.5f, 1f), new Vector2(0.5f, 1f), new Vector2(0.5f, 0f),
-                                   new Vector2(0f, 8f), new Vector2(200f, 34f));
-            UIKit.LabelShadowed("GlassTitle", gtBox, "RELEASE AT THE LINE", 22, Palette.Cream);
+            // Right-anchored at the meter's right edge: the caption is now the live tank
+            // verdict, so the flavour claim is carried in a WORD next to the instrument the
+            // player is already staring at during the scoring action.
+            var gtBox = UIKit.Rect("TitleBox", _glassRoot, new Vector2(1f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f),
+                                   new Vector2(0f, 10f), new Vector2(560f, 36f));
+            _glassTitle = UIKit.LabelShadowed("GlassTitle", gtBox, "RELEASE AT THE LINE", 26, Palette.Cream, TextAnchor.MiddleRight);
             _glassRoot.gameObject.SetActive(false);
 
             // --- floating score popups -------------------------------------------------
@@ -198,7 +201,7 @@ namespace FizzyMoo
 
             // --- title / game-over panels ------------------------------------------------
             _panelTitle = BuildPanel(root, out _bigTitle, out _bigSub, "",
-                                     "Eat the fruit the customer wants  -  pour at the stand  -  release on the line\nDon't hit 100 PSI.\n\nWASD to move      hold SPACE to pour      Press SPACE to start");
+                                     "BESSIE IS THE KEG  -  whatever fruit she eats is what pours.\nEat what the customer wants, pour at the stand, release on the line.\nWrong fruit in her?  Press E to dump the tank.  Don't hit 100 PSI.\n\nWASD move      SPACE pour      E dump      Press SPACE to start");
             BuildWordmark(_panelTitle);
             _panelOver = BuildPanel(root, out var ot, out var os, "TIME!", "");
             _overTitle = ot; _overSub = os;
@@ -302,7 +305,7 @@ namespace FizzyMoo
         }
 
         /// <summary>Vertical glass meter: current fill vs the customer's target line.</summary>
-        public void SetGlass(bool on, float fill, float target, Color c)
+        public void SetGlass(bool on, float fill, float target, Color c, string state, Color stateCol)
         {
             if (_glassRoot.gameObject.activeSelf != on) _glassRoot.gameObject.SetActive(on);
             if (!on) return;
@@ -313,6 +316,8 @@ namespace FizzyMoo
             ((RectTransform)_glassPct.transform.parent).anchoredPosition = new Vector2(-24f, 8f + Mathf.Clamp01(target) * H);
             string t = Mathf.RoundToInt(target * 100f) + "%";
             if (_glassPct.text != t) _glassPct.text = t;
+            if (_glassTitle.text != state) _glassTitle.text = state;
+            _glassTitle.color = stateCol;
         }
 
         public void Flash(Color c, float strength)
@@ -375,7 +380,9 @@ namespace FizzyMoo
             _score.transform.parent.localScale = Vector3.one * (1f + Ease.OutCubic(_scorePunch) * 0.22f);
 
             _flashT = Mathf.Max(0f, _flashT - dt * 3.4f);
-            _flash.color = new Color(_flashColor.r, _flashColor.g, _flashColor.b, _flashT * 0.55f);
+            // 0.34 not 0.55: the full-screen wash was flattening the tank colour language at the
+            // single highest-attention frame, which is exactly where it must stay legible.
+            _flash.color = new Color(_flashColor.r, _flashColor.g, _flashColor.b, _flashT * 0.34f);
 
             for (int i = 0; i < _pops.Length; i++)
             {

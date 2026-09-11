@@ -204,7 +204,7 @@ namespace FizzyMoo
             transform.localScale = Vector3.one * Size;
         }
 
-        public void React(bool happy, float quality)
+        public void React(bool happy, float quality, bool flavorRight = true)
         {
             StopAllCoroutines();
             // The card becomes the reaction so it reads from across the field.
@@ -214,8 +214,9 @@ namespace FizzyMoo
             string[] great = { "WAIT. WHY IS THIS GOOD?", "MOO-VELLOUS!", "OKAY. I GET IT NOW." };
             string[] good  = { "YUM.", "HUH. NOT BAD.", "FINE. IT'S GOOD." };
             string[] meh   = { "MEH.", "...WARM.", "CLOSE." };
-            string[] nope  = { "NOPE.", "THAT'S NOT IT.", "WRONG MOO." };
-            var pool = !happy ? (quality > 0.2f ? meh : nope) : (quality > 0.9f ? great : good);
+            string[] nope  = { "I SAID " + Palette.Short(Want) + ".", "THAT'S NOT IT.", "WRONG MOO." };
+            var pool = !happy ? (!flavorRight ? nope : (quality > 0.2f ? meh : nope))
+                              : (quality > 0.9f ? great : good);
             _cardReact.text = pool[(_sayIdx++) % pool.Length];
             _cardReact.color = happy ? (quality > 0.9f ? Palette.Gold : new Color(0.2f, 0.55f, 0.25f)) : Palette.Danger;
             _cardBg.color = happy ? Palette.Cream : new Color(1f, 0.86f, 0.82f);

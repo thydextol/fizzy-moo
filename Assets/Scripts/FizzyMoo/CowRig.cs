@@ -218,7 +218,7 @@ namespace FizzyMoo
             // Udder: swells and glows with the flavour in the tank.
             float u = 1f + p * 1.05f + _jiggle * 0.22f;
             Udder.localScale = Vector3.Scale(_udderHome, new Vector3(u, u * (1f + p * 0.25f), u));
-            var c = Palette.Mix(FlavorMix);
+            var c = Palette.Tank(FlavorMix);
             _udderMat.color = Color.Lerp(Palette.Cream, c, Mathf.Clamp01(FlavorMix.magnitude * 1.6f));
             _udderMat.SetColor("_EmissionColor", c * Mathf.Lerp(0f, 1.4f, Mathf.Max(0f, p - 0.5f) * 2f));
             if (p > 0.5f) _udderMat.EnableKeyword("_EMISSION");

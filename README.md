@@ -16,7 +16,9 @@ Unity -batchmode -quit -nographics -projectPath . \
       -executeMethod FizzyMoo.EditorTools.FizzyMooBuild.BuildMac
 ```
 
-Controls: `WASD`/arrows move · `Space` vent/pour · `R` restart · `B` jump to 92 PSI (demo) · `P` toggle autopilot.
+Controls: `WASD`/arrows move · `Space` vent/pour · `E` dump the tank · `R` restart · `B` jump to 92 PSI (demo) · `P` toggle autopilot.
+
+Bessie **is** the keg: whatever fruit she eats is what pours. The tap refuses to open on a tank whose flavour is wrong or below 45% pure — press `E` to dump it and start again.
 Player flags: `--demo` (autopilot attract mode) · `--record --seconds N --outdir DIR` (deterministic 60 fps JPEG capture + `events.tsv` audio event track).
 
 ## Layout

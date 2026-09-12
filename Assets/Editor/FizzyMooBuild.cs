@@ -1,8 +1,12 @@
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEditor.XR.Management;
+using UnityEditor.XR.Management.Metadata;
+using UnityEngine.XR.Management;
 
 namespace FizzyMoo.EditorTools
 {
@@ -126,6 +130,113 @@ namespace FizzyMoo.EditorTools
                 Debug.Log("[FizzyMoo] Target architecture set to ARM64");
             }
             catch (System.Exception e) { Debug.LogWarning("[FizzyMoo] arch set skipped: " + e.Message); }
+        }
+
+        // ---------------------------------------------------------------- iOS / AR
+
+        const string ARKitLoader = "UnityEngine.XR.ARKit.ARKitLoader";
+
+        /// <summary>
+        /// iOS player + XR setup, done in code so the AR build is as reproducible as the desktop one.
+        /// Two of these are silent killers if missed: with no XR loader registered ARSession reports
+        /// Unsupported and you get a black screen with the HUD on top and zero errors; with an empty
+        /// cameraUsageDescription iOS terminates the app the instant ARKit opens a capture session,
+        /// which presents as a random crash rather than a permissions problem.
+        /// </summary>
+        public static void ApplyIOSSettings()
+        {
+            PlayerSettings.iOS.cameraUsageDescription = "Fizzy Moo puts Bessie's meadow on your table.";
+            PlayerSettings.iOS.targetOSVersionString = "15.0";
+            PlayerSettings.SetArchitecture(UnityEditor.Build.NamedBuildTarget.iOS, 1);   // ARM64
+            PlayerSettings.SetScriptingBackend(UnityEditor.Build.NamedBuildTarget.iOS, ScriptingImplementation.IL2CPP);
+            PlayerSettings.SetApplicationIdentifier(UnityEditor.Build.NamedBuildTarget.iOS, "edu.colorado.atls4616.fizzymoo");
+            // The HUD has no orientation handling; lock it rather than let it rotate into a broken layout.
+            PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
+            PlayerSettings.allowedAutorotateToLandscapeRight = false;
+            PlayerSettings.allowedAutorotateToPortrait = false;
+            PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+
+            EnsureARKitLoader();
+            AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>Register the ARKit loader for iOS and fail loudly if it did not stick.</summary>
+        static void EnsureARKitLoader()
+        {
+            if (!EditorBuildSettings.TryGetConfigObject(XRGeneralSettings.k_SettingsKey,
+                    out XRGeneralSettingsPerBuildTarget perTarget) || perTarget == null)
+            {
+                Directory.CreateDirectory("Assets/XR");
+                perTarget = ScriptableObject.CreateInstance<XRGeneralSettingsPerBuildTarget>();
+                AssetDatabase.CreateAsset(perTarget, "Assets/XR/XRGeneralSettingsPerBuildTarget.asset");
+                EditorBuildSettings.AddConfigObject(XRGeneralSettings.k_SettingsKey, perTarget, true);
+            }
+
+            perTarget.CreateDefaultManagerSettingsForBuildTarget(BuildTargetGroup.iOS);
+            var settings = perTarget.SettingsForBuildTarget(BuildTargetGroup.iOS);
+            if (settings == null || settings.Manager == null)
+                throw new System.Exception("[FizzyMoo] could not create XRGeneralSettings for iOS");
+
+            if (!XRPackageMetadataStore.AssignLoader(settings.Manager, ARKitLoader, BuildTargetGroup.iOS))
+                Debug.LogWarning("[FizzyMoo] AssignLoader returned false (may already be assigned)");
+
+            EditorUtility.SetDirty(perTarget);
+            EditorUtility.SetDirty(settings);
+            AssetDatabase.SaveAssets();
+
+            var names = settings.Manager.activeLoaders.Select(l => l == null ? "<null>" : l.GetType().FullName).ToList();
+            Debug.Log("[FizzyMoo] iOS active XR loaders: " + (names.Count == 0 ? "NONE" : string.Join(", ", names)));
+            if (!names.Any(n => n.Contains("ARKitLoader")))
+                throw new System.Exception("[FizzyMoo] ARKit loader NOT registered for iOS - the build would " +
+                                           "produce a black screen with no errors. Aborting.");
+        }
+
+        [MenuItem("Fizzy Moo/3 - Build iOS (Xcode project)")]
+        public static void BuildIOS()
+        {
+            GenerateScene();
+            ApplyIOSSettings();
+            EnsureAlwaysIncludedShaders();
+
+            var dir = Path.GetFullPath("Build/iOS");
+            Directory.CreateDirectory(dir);
+            var opts = new BuildPlayerOptions
+            {
+                scenes = new[] { ScenePath },
+                locationPathName = dir,
+                target = BuildTarget.iOS,
+                targetGroup = BuildTargetGroup.iOS,
+                options = BuildOptions.None,
+            };
+            var report = BuildPipeline.BuildPlayer(opts);
+            var s = report.summary;
+            Debug.Log($"[FizzyMoo] iOS build {s.result}  errors={s.totalErrors}  -> {dir}");
+            if (s.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
+                throw new System.Exception("iOS build failed: " + s.result);
+        }
+
+        /// <summary>
+        /// Desktop build carrying FIZZY_ARPREVIEW, so the AR stage can be exercised and
+        /// frame-captured without a phone attached.
+        /// </summary>
+        [MenuItem("Fizzy Moo/4 - Build AR Preview (desktop)")]
+        public static void BuildARPreview()
+        {
+            var nbt = UnityEditor.Build.NamedBuildTarget.Standalone;
+            var defines = PlayerSettings.GetScriptingDefineSymbols(nbt);
+            if (!defines.Contains("FIZZY_ARPREVIEW"))
+                PlayerSettings.SetScriptingDefineSymbols(nbt,
+                    string.IsNullOrEmpty(defines) ? "FIZZY_ARPREVIEW" : defines + ";FIZZY_ARPREVIEW");
+            try { BuildMac(); }
+            finally { PlayerSettings.SetScriptingDefineSymbols(nbt, defines); }
+        }
+
+        /// <summary>CI entry point: prove the iOS/XR configuration without running a full build.</summary>
+        public static void CI_ConfigureIOS()
+        {
+            GenerateScene();
+            ApplyIOSSettings();
+            Debug.Log("[FizzyMoo] iOS configuration OK");
         }
 
         /// <summary>Compile check only - fails the CLI run if anything does not build.</summary>
